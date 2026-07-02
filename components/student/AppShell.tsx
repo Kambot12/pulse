@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, QrCode, Activity, User, Pill, CalendarClock, Stethoscope, ListOrdered, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, QrCode, Activity, User, Pill, CalendarClock, Stethoscope, ListOrdered, Bot, type LucideIcon } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { LogoutButton } from "./LogoutButton";
 import { cn, initials } from "@/lib/utils";
@@ -12,6 +12,7 @@ const NAV: { href: string; label: string; icon: LucideIcon; primary?: boolean }[
   { href: "/medications", label: "Meds", icon: Pill, primary: true },
   { href: "/appointments", label: "Appts", icon: CalendarClock, primary: true },
   { href: "/queue", label: "Queue", icon: ListOrdered },
+  { href: "/assistant", label: "Assistant", icon: Bot },
   { href: "/symptoms", label: "Symptoms", icon: Stethoscope },
   { href: "/passport", label: "Passport", icon: QrCode, primary: true },
   { href: "/timeline", label: "Timeline", icon: Activity },

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { QrCode, CalendarClock, Pill, Stethoscope, ChevronRight } from "lucide-react";
+import { QrCode, CalendarClock, Pill, Stethoscope, ChevronRight, Bot } from "lucide-react";
 import { dbConnect } from "@/lib/db/connect";
 import { getCurrentStudentProfile } from "@/lib/auth/session";
 import { Appointment } from "@/lib/db/models/Appointment";
@@ -132,6 +132,13 @@ export default async function DashboardPage() {
 
       {/* Feeling unwell + Emergency SOS */}
       <div className="grid gap-4 sm:grid-cols-2">
+        <Link href="/assistant" className="card flex items-center gap-3 p-5 transition hover:border-brand/40">
+          <div className="grid size-11 place-items-center rounded-xl bg-[#ecfeff] text-brand-ink"><Bot size={22} /></div>
+          <div>
+            <p className="font-semibold">Ask the health assistant</p>
+            <p className="text-sm text-muted">Educational answers, anytime</p>
+          </div>
+        </Link>
         <Link href="/symptoms" className="card flex items-center gap-3 p-5 transition hover:border-brand/40">
           <div className="grid size-11 place-items-center rounded-xl bg-[#ecfeff] text-brand-ink"><Stethoscope size={22} /></div>
           <div>
