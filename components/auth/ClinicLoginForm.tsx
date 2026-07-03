@@ -36,8 +36,8 @@ export function ClinicLoginForm() {
 
       <SubmitButton pendingText="Signing in…">Sign in to clinic</SubmitButton>
 
-      <div className="space-y-1 pt-1 text-center text-sm">
-        <p className="text-muted">No account? Ask your clinic admin to create one.</p>
+      <div className="space-y-1 border-t border-line pt-3 text-center text-sm">
+        <p className="text-muted">Have an invite code? <Link href="/clinic/register" className="font-medium text-brand-ink hover:underline">Create your account</Link></p>
         <p><Link href="/login" className="text-brand-ink hover:underline">I&apos;m a student →</Link></p>
       </div>
     </form>

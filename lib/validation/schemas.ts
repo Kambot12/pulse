@@ -112,3 +112,10 @@ export const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, "Enter your current password"),
   newPassword: z.string().min(8, "New password must be at least 8 characters"),
 });
+
+export const inviteRegisterSchema = z.object({
+  name: z.string().min(2, "Enter your name"),
+  email: z.string().email("Enter a valid email"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  code: z.string().min(4, "Enter your invite code"),
+});
