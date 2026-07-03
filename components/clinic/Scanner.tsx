@@ -18,27 +18,44 @@ export function Scanner() {
 
   useEffect(() => {
     let cancelled = false;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let scanner: any = null;
+
+    // html5-qrcode's stop() throws synchronously if it isn't scanning, so guard on state.
+    const safeStop = () => {
+      if (!scanner) return;
+      try {
+        const state = scanner.getState?.(); // 2 = SCANNING, 3 = PAUSED
+        if (state === 2 || state === 3) {
+          scanner.stop().then(() => { try { scanner?.clear?.(); } catch {} }).catch(() => {});
+        }
+      } catch { /* not running — nothing to stop */ }
+    };
+    stopRef.current = safeStop;
+
     (async () => {
       try {
         const { Html5Qrcode } = await import("html5-qrcode");
-        const scanner = new Html5Qrcode(regionId);
-        stopRef.current = () => scanner.stop().catch(() => {});
+        if (cancelled) return;
+        scanner = new Html5Qrcode(regionId);
         await scanner.start(
           { facingMode: "environment" },
           { fps: 10, qrbox: { width: 240, height: 240 } },
-          (decodedText) => {
+          (decodedText: string) => {
             if (cancelled) return;
             cancelled = true;
-            scanner.stop().catch(() => {});
+            safeStop();
             open(decodedText);
           },
           () => {}
         );
+        if (cancelled) safeStop(); // unmounted while starting
       } catch {
         setError("Camera unavailable. Use manual entry below.");
       }
     })();
-    return () => { cancelled = true; stopRef.current?.(); };
+
+    return () => { cancelled = true; safeStop(); };
   }, []);
 
   const extractToken = (text: string): string => {
