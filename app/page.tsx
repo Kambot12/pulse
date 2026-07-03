@@ -17,6 +17,7 @@ export default function Landing() {
       <header className="flex items-center justify-between py-6">
         <Logo />
         <nav className="flex items-center gap-2">
+          <Link href="/clinic" className="btn btn-ghost hidden sm:inline-flex">For clinics</Link>
           <Link href="/login" className="btn btn-ghost">Log in</Link>
           <Link href="/signup" className="btn btn-primary">Get started</Link>
         </nav>
