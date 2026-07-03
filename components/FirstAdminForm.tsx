@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { createFirstAdminAction } from "@/lib/actions/staff";
 import type { ActionState } from "@/lib/actions/auth";
 import { SubmitButton } from "@/components/SubmitButton";
+import { PasswordInput } from "@/components/PasswordInput";
 
 export function FirstAdminForm() {
   const [state, action] = useActionState<ActionState, FormData>(createFirstAdminAction, undefined);
@@ -24,7 +25,7 @@ export function FirstAdminForm() {
       </div>
       <div>
         <label className="label" htmlFor="password">Password</label>
-        <input id="password" name="password" type="password" required minLength={8} className="input" placeholder="At least 8 characters" />
+        <PasswordInput id="password" name="password" required minLength={8} placeholder="At least 8 characters" autoComplete="new-password" />
       </div>
       <div>
         <label className="label" htmlFor="secret">Setup secret <span className="font-normal text-muted">(only if configured)</span></label>

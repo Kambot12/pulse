@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { changePasswordAction, type AccountActionState } from "@/lib/actions/account";
 import { SubmitButton } from "@/components/SubmitButton";
+import { PasswordInput } from "@/components/PasswordInput";
 
 export function ChangePasswordForm() {
   const [state, action] = useActionState<AccountActionState, FormData>(changePasswordAction, undefined);
@@ -18,11 +19,11 @@ export function ChangePasswordForm() {
       {state?.error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{state.error}</p>}
       <div>
         <label className="label" htmlFor="currentPassword">Current password</label>
-        <input id="currentPassword" name="currentPassword" type="password" required className="input" placeholder="••••••••" />
+        <PasswordInput id="currentPassword" name="currentPassword" required placeholder="••••••••" autoComplete="current-password" />
       </div>
       <div>
         <label className="label" htmlFor="newPassword">New password</label>
-        <input id="newPassword" name="newPassword" type="password" required minLength={8} className="input" placeholder="At least 8 characters" />
+        <PasswordInput id="newPassword" name="newPassword" required minLength={8} placeholder="At least 8 characters" autoComplete="new-password" />
       </div>
       <SubmitButton pendingText="Updating…">Update password</SubmitButton>
     </form>
