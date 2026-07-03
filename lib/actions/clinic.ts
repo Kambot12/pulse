@@ -42,9 +42,10 @@ export async function searchPatientsAction(query: string): Promise<PatientHit[]>
   return hits.map((h) => ({ id: String(h._id), name: h.name, matricNumber: h.matricNumber }));
 }
 
-function clinicianName(email?: string | null): string {
-  if (!email) return "the clinic";
-  return `Dr. ${email.split("@")[0]}`;
+function clinicianName(user: { name?: string | null; email?: string | null }): string {
+  if (user.name) return user.name;
+  if (user.email) return `Dr. ${user.email.split("@")[0]}`;
+  return "the clinic";
 }
 
 async function notifyStudent(studentId: string, title: string, body: string, url = "/medications") {
@@ -69,7 +70,7 @@ export async function prescribeMedicationAction(
   const schedule = generateTimes(frequencyKey);
   const startDate = todayISO();
   const endDate = computeEndDate(startDate, durationDays || null);
-  const docName = clinicianName(user.email);
+  const docName = clinicianName(user);
 
   await dbConnect();
   await Medication.create({
@@ -108,7 +109,7 @@ export async function addRecordAction(
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const { studentId, type, title, details } = parsed.data;
-  const docName = clinicianName(user.email);
+  const docName = clinicianName(user);
 
   await dbConnect();
   await MedicalRecord.create({ studentId, type, title, details, doctorId: user.id, doctorName: docName });
@@ -141,7 +142,7 @@ export async function recordConsultationAction(
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const { studentId, complaint, diagnosis, notes, pregnant, prescriptions: rxList } = parsed.data;
-  const docName = clinicianName(user.email);
+  const docName = clinicianName(user);
 
   await dbConnect();
 
@@ -203,7 +204,7 @@ export async function scheduleFollowUpAction(
   await dbConnect();
   await Appointment.create({ studentId, date, time, reason, status: "approved" });
   await AuditLog.create({ actorId: user.id, action: "clinic.followUp", targetType: "StudentProfile", targetId: studentId });
-  await notifyStudent(studentId, "📅 Follow-up scheduled", `${clinicianName(user.email)} booked a follow-up on ${date} at ${time}.`, "/appointments");
+  await notifyStudent(studentId, "📅 Follow-up scheduled", `${clinicianName(user)} booked a follow-up on ${date} at ${time}.`, "/appointments");
 
   revalidatePath(`/patient/${studentId}`);
   revalidatePath("/appointments");
@@ -230,7 +231,7 @@ export async function updateMedicationByClinicAction(
   await med.save();
 
   await AuditLog.create({ actorId: user.id, action: "clinic.updateMed", targetType: "Medication", targetId: medId });
-  await notifyStudent(String(med.studentId), "💊 Prescription updated", `${clinicianName(user.email)} updated ${med.name}.`);
+  await notifyStudent(String(med.studentId), "💊 Prescription updated", `${clinicianName(user)} updated ${med.name}.`);
 
   revalidatePath(`/patient/${med.studentId}`);
   revalidatePath("/medications");
@@ -245,7 +246,7 @@ export async function stopMedicationByClinicAction(medId: string) {
   if (!med) return;
 
   await AuditLog.create({ actorId: user.id, action: "clinic.stopMed", targetType: "Medication", targetId: medId });
-  await notifyStudent(String(med.studentId), "💊 Medication stopped", `${clinicianName(user.email)} stopped ${med.name}.`);
+  await notifyStudent(String(med.studentId), "💊 Medication stopped", `${clinicianName(user)} stopped ${med.name}.`);
 
   revalidatePath(`/patient/${med.studentId}`);
   revalidatePath("/medications");

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/student/AppShell";
+import { MustChangePasswordBanner } from "@/components/MustChangePasswordBanner";
 import { getCurrentStudentProfile, getCurrentUser } from "@/lib/auth/session";
 
 export default async function StudentLayout({ children }: { children: React.ReactNode }) {
@@ -12,5 +13,10 @@ export default async function StudentLayout({ children }: { children: React.Reac
   const profile = await getCurrentStudentProfile();
   if (!profile?.onboardingComplete) redirect("/onboarding");
 
-  return <AppShell name={profile.name}>{children}</AppShell>;
+  return (
+    <AppShell name={profile.name}>
+      <MustChangePasswordBanner show={user.mustChangePassword} />
+      {children}
+    </AppShell>
+  );
 }

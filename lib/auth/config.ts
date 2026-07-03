@@ -10,11 +10,17 @@ export const authConfig = {
   session: { strategy: "jwt" },
   trustHost: true,
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id as string;
         token.role = (user as { role?: string }).role ?? "student";
+        token.name = (user as { name?: string }).name ?? "";
         token.onboardingComplete = (user as { onboardingComplete?: boolean }).onboardingComplete ?? false;
+        token.mustChangePassword = (user as { mustChangePassword?: boolean }).mustChangePassword ?? false;
+      }
+      // allow server-side session updates (e.g. after changing password)
+      if (trigger === "update" && session) {
+        if (typeof session.mustChangePassword === "boolean") token.mustChangePassword = session.mustChangePassword;
       }
       return token;
     },
@@ -22,7 +28,9 @@ export const authConfig = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = (token.role as string) ?? "student";
+        session.user.name = (token.name as string) ?? "";
         session.user.onboardingComplete = Boolean(token.onboardingComplete);
+        session.user.mustChangePassword = Boolean(token.mustChangePassword);
       }
       return session;
     },

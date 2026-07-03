@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Pencil } from "lucide-react";
 import { getCurrentStudentProfile } from "@/lib/auth/session";
 import { initials } from "@/lib/utils";
 
@@ -28,10 +30,11 @@ export default async function ProfilePage() {
         <div className="brand-gradient grid size-16 place-items-center rounded-2xl text-xl font-bold text-white">
           {initials(p.name)}
         </div>
-        <div>
+        <div className="min-w-0 flex-1">
           <h1 className="text-xl font-bold">{p.name}</h1>
           <p className="text-sm text-muted">{p.matricNumber}</p>
         </div>
+        <Link href="/profile/edit" className="btn btn-ghost px-3 py-2 text-sm"><Pencil size={15} /> Edit</Link>
       </div>
 
       <div className="card p-5">

@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ScanLine, LayoutDashboard, Siren, CalendarCheck, ListOrdered, ClipboardList, BarChart3 } from "lucide-react";
+import { ScanLine, LayoutDashboard, Siren, CalendarCheck, ListOrdered, ClipboardList, BarChart3, Users } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { LogoutButton } from "@/components/student/LogoutButton";
+import { MustChangePasswordBanner } from "@/components/MustChangePasswordBanner";
 import { getCurrentUser } from "@/lib/auth/session";
 
 export default async function ClinicLayout({ children }: { children: React.ReactNode }) {
@@ -36,9 +37,14 @@ export default async function ClinicLayout({ children }: { children: React.React
                 <Siren size={16} /> Emergencies
               </Link>
               {user.role === "admin" && (
-                <Link href="/admin" className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-slate-50">
-                  <BarChart3 size={16} /> Analytics
-                </Link>
+                <>
+                  <Link href="/admin" className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-slate-50">
+                    <BarChart3 size={16} /> Analytics
+                  </Link>
+                  <Link href="/admin/staff" className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-slate-50">
+                    <Users size={16} /> Staff
+                  </Link>
+                </>
               )}
             </nav>
           </div>
@@ -48,7 +54,10 @@ export default async function ClinicLayout({ children }: { children: React.React
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-5 py-8">{children}</main>
+      <main className="mx-auto max-w-5xl px-5 py-8">
+        <MustChangePasswordBanner show={user.mustChangePassword} />
+        {children}
+      </main>
     </div>
   );
 }

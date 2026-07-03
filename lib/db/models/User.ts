@@ -8,6 +8,9 @@ const UserSchema = new Schema(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     passwordHash: { type: String, required: true },
     role: { type: String, enum: [...ROLES], default: "student", index: true },
+    name: { type: String, default: "" }, // used for staff display (students use StudentProfile.name)
+    mustChangePassword: { type: Boolean, default: false },
+    disabled: { type: Boolean, default: false },
     onboardingComplete: { type: Boolean, default: false },
   },
   { timestamps: true }

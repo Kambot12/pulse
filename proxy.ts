@@ -8,7 +8,7 @@ const CLINIC_ROLES = new Set(["doctor", "reception", "admin"]);
 const CLINIC_PREFIXES = ["/doctor", "/reception", "/admin", "/scan", "/emergencies", "/patient",
   "/approvals", "/queue-board"];
 const STUDENT_PREFIXES = ["/dashboard", "/passport", "/profile", "/assistant",
-  "/medications", "/appointments", "/queue", "/timeline", "/journal", "/onboarding", "/symptoms"];
+  "/medications", "/appointments", "/queue", "/timeline", "/journal", "/onboarding", "/symptoms", "/settings"];
 
 export default auth((req) => {
   const { nextUrl } = req;
@@ -39,6 +39,10 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/dashboard", nextUrl));
   }
   if (isStudentRoute && CLINIC_ROLES.has(role)) {
+    return NextResponse.redirect(new URL("/doctor", nextUrl));
+  }
+  // Admin-only area (analytics + staff management): hard-gate at the edge.
+  if ((path === "/admin" || path.startsWith("/admin/")) && role !== "admin") {
     return NextResponse.redirect(new URL("/doctor", nextUrl));
   }
 
