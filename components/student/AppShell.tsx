@@ -1,8 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, QrCode, Activity, User, Pill, CalendarClock, Stethoscope, ListOrdered, Bot, Settings, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, QrCode, Activity, User, Pill, CalendarClock, Stethoscope, ListOrdered, Bot, Settings, Menu, type LucideIcon } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { LogoutButton } from "./LogoutButton";
 import { cn, initials } from "@/lib/utils";
@@ -16,13 +17,23 @@ const NAV: { href: string; label: string; icon: LucideIcon; primary?: boolean }[
   { href: "/symptoms", label: "Symptoms", icon: Stethoscope },
   { href: "/passport", label: "Passport", icon: QrCode, primary: true },
   { href: "/timeline", label: "Timeline", icon: Activity },
-  { href: "/profile", label: "Profile", icon: User, primary: true },
+  { href: "/profile", label: "Profile", icon: User },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
+// Mobile bottom bar: 4 key tabs + a "More" sheet with everything else.
+const BOTTOM = NAV.filter((i) => i.primary).slice(0, 4);
+const bottomHrefs = new Set(BOTTOM.map((i) => i.href));
+const MORE = NAV.filter((i) => !bottomHrefs.has(i.href));
+
 export function AppShell({ name, children }: { name: string; children: React.ReactNode }) {
   const pathname = usePathname();
+  const [moreOpen, setMoreOpen] = useState(false);
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
+  const moreActive = MORE.some((i) => isActive(i.href));
+
+  // Close the sheet whenever the route changes.
+  useEffect(() => { setMoreOpen(false); }, [pathname]);
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-6xl">
@@ -36,9 +47,7 @@ export function AppShell({ name, children }: { name: string; children: React.Rea
               href={item.href}
               className={cn(
                 "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
-                isActive(item.href)
-                  ? "bg-[#ecfeff] text-brand-ink"
-                  : "text-muted hover:bg-slate-50 hover:text-foreground"
+                isActive(item.href) ? "bg-[#ecfeff] text-brand-ink" : "text-muted hover:bg-slate-50 hover:text-foreground"
               )}
             >
               <item.icon size={18} /> {item.label}
@@ -47,9 +56,7 @@ export function AppShell({ name, children }: { name: string; children: React.Rea
         </nav>
         <div className="mt-auto border-t border-line pt-3">
           <div className="mb-2 flex items-center gap-2 px-2">
-            <div className="brand-gradient grid size-9 place-items-center rounded-full text-sm font-bold text-white">
-              {initials(name)}
-            </div>
+            <div className="brand-gradient grid size-9 place-items-center rounded-full text-sm font-bold text-white">{initials(name)}</div>
             <span className="truncate text-sm font-medium">{name}</span>
           </div>
           <LogoutButton />
@@ -61,16 +68,39 @@ export function AppShell({ name, children }: { name: string; children: React.Rea
         {/* Mobile top bar */}
         <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-background/80 px-4 py-3 backdrop-blur md:hidden">
           <Logo size={32} />
-          <div className="brand-gradient grid size-9 place-items-center rounded-full text-sm font-bold text-white">
-            {initials(name)}
-          </div>
+          <div className="brand-gradient grid size-9 place-items-center rounded-full text-sm font-bold text-white">{initials(name)}</div>
         </header>
 
         <main className="flex-1 px-4 pb-24 pt-5 md:px-8 md:pb-10 md:pt-8">{children}</main>
 
+        {/* Mobile "More" sheet */}
+        {moreOpen && (
+          <div className="fixed inset-0 z-40 md:hidden" onClick={() => setMoreOpen(false)}>
+            <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+            <div className="absolute inset-x-0 bottom-0 rounded-t-3xl border-t border-line bg-surface p-4 pb-6 animate-fade-up" onClick={(e) => e.stopPropagation()}>
+              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-slate-300" />
+              <div className="grid grid-cols-3 gap-2">
+                {MORE.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "flex flex-col items-center gap-1.5 rounded-2xl p-3 text-xs font-medium transition",
+                      isActive(item.href) ? "bg-[#ecfeff] text-brand-ink" : "bg-slate-50 text-muted"
+                    )}
+                  >
+                    <item.icon size={22} /> {item.label}
+                  </Link>
+                ))}
+              </div>
+              <div className="mt-3 border-t border-line pt-2"><LogoutButton /></div>
+            </div>
+          </div>
+        )}
+
         {/* Mobile bottom nav */}
         <nav className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-line bg-surface/95 px-2 py-2 backdrop-blur md:hidden">
-          {NAV.filter((i) => i.primary).map((item) => (
+          {BOTTOM.map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -82,6 +112,15 @@ export function AppShell({ name, children }: { name: string; children: React.Rea
               <item.icon size={20} /> {item.label}
             </Link>
           ))}
+          <button
+            onClick={() => setMoreOpen((v) => !v)}
+            className={cn(
+              "flex flex-1 flex-col items-center gap-0.5 rounded-lg py-1 text-[11px] font-medium transition",
+              moreActive || moreOpen ? "text-brand-ink" : "text-muted"
+            )}
+          >
+            <Menu size={20} /> More
+          </button>
         </nav>
       </div>
     </div>
