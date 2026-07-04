@@ -9,9 +9,11 @@ import { pushToUserIds } from "@/lib/push";
 export const runtime = "nodejs";
 
 /**
- * Fires due medication reminders. Intended to run every ~10–15 min via Vercel Cron.
- * Protected by CRON_SECRET (Authorization: Bearer <secret> or ?secret=). Vercel Cron
- * automatically sends the Authorization header.
+ * Fires due medication reminders. Runs every ~15 min, triggered externally by the
+ * GitHub Actions workflow at .github/workflows/cron-reminders.yml (moved off Vercel
+ * Cron, which only fires once/day on the Hobby plan).
+ * Protected by CRON_SECRET (Authorization: Bearer <secret> or ?secret=). The scheduler
+ * sends the Authorization header.
  */
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
@@ -69,3 +71,7 @@ export async function GET(req: Request) {
 
   return Response.json({ ok: true, sent, checkedMeds: meds.length });
 }
+
+// GitHub Actions calls this endpoint with POST. Reuse the exact same handler and
+// auth check — no business logic changes, just an additional allowed method.
+export const POST = GET;

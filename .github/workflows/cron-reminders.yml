@@ -1,0 +1,88 @@
+# Medication-reminder scheduler.
+#
+# Replaces Vercel Cron: on the Vercel Hobby (free) plan a cron expression is only
+# triggered ONCE PER DAY no matter what schedule you set. GitHub Actions is an
+# external caller, so it is not subject to that limit — it just makes an HTTPS
+# request to the production API route, which does all the real work.
+name: Cron · Medication reminders
+
+on:
+  schedule:
+    # Every 15 minutes (UTC). NOTE: GitHub runs scheduled jobs on a best-effort
+    # basis and may delay them by several minutes under load — that is fine here,
+    # because the endpoint scans a 15-min window and de-dupes each dose slot, so a
+    # late or occasionally repeated run never double-notifies a student.
+    - cron: "*/15 * * * *"
+  # Lets you trigger a run by hand from the Actions tab (handy for testing).
+  workflow_dispatch:
+
+# If a run is somehow still going when the next tick fires, don't stack them —
+# skip the older one. Prevents overlapping calls hammering the endpoint.
+concurrency:
+  group: cron-reminders
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    # Hard ceiling so a hung request can never burn Actions minutes.
+    timeout-minutes: 5
+    steps:
+      - name: Trigger reminders endpoint
+        env:
+          # Injected from repo secrets/variables — nothing sensitive is hardcoded.
+          # GitHub automatically masks CRON_SECRET in the logs.
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          # Your production origin, e.g. https://pulse.vercel.app (no trailing path).
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${PRODUCTION_URL:-}" ]; then
+            echo "::error::PRODUCTION_URL repository variable is not set."
+            exit 1
+          fi
+          if [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::CRON_SECRET repository secret is not set."
+            exit 1
+          fi
+
+          # Strip any trailing slash so the URL is always well-formed.
+          ENDPOINT="${PRODUCTION_URL%/}/api/cron/reminders"
+          echo "POST ${ENDPOINT}"
+
+          # Reliability flags:
+          #   --fail-with-body   -> non-2xx responses exit non-zero (marks the run red)
+          #                         but still print the body so we can see the error
+          #   --max-time 60      -> per-attempt timeout, never hang
+          #   --retry 3          -> retry transient failures (cold start, 5xx, network)
+          #   --retry-delay 10   -> wait 10s between retries
+          #   --retry-all-errors -> also retry on connection errors, not just HTTP 5xx
+          #   -w "..."           -> log the final status code + total time
+          HTTP_CODE=$(curl \
+            --silent --show-error \
+            --fail-with-body \
+            --location \
+            --max-time 60 \
+            --retry 3 \
+            --retry-delay 10 \
+            --retry-all-errors \
+            -X POST \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            -o /tmp/response.json \
+            -w "%{http_code}" \
+            "${ENDPOINT}")
+
+          echo "HTTP ${HTTP_CODE}"
+          echo "Response body:"
+          cat /tmp/response.json || true
+          echo
+
+          # Belt-and-suspenders: fail explicitly on anything outside 2xx.
+          if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -ge 300 ]; then
+            echo "::error::Reminder endpoint returned HTTP ${HTTP_CODE}"
+            exit 1
+          fi
+
+          echo "::notice::Reminders triggered successfully (HTTP ${HTTP_CODE})."
