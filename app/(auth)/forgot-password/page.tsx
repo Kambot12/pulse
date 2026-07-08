@@ -1,15 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState } from "react";
 import Link from "next/link";
+import { requestPasswordResetAction, type ResetRequestState } from "@/lib/actions/auth";
+import { SubmitButton } from "@/components/SubmitButton";
 
 /**
- * Forgot-password UI. Wiring the reset email requires a mail provider (Resend /
- * SES) — a Phase 5 task. The form intentionally always shows the same message so
- * it never reveals whether an email is registered.
+ * Forgot-password step 1: request a reset link. Always shows the same success
+ * message so it never reveals whether an email is registered.
  */
 export default function ForgotPasswordPage() {
-  const [sent, setSent] = useState(false);
+  const [state, action] = useActionState<ResetRequestState, FormData>(
+    requestPasswordResetAction,
+    undefined
+  );
 
   return (
     <div className="space-y-4">
@@ -20,23 +24,21 @@ export default function ForgotPasswordPage() {
         </p>
       </div>
 
-      {sent ? (
+      {state?.ok ? (
         <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-          If an account exists for that email, a reset link is on its way.
+          If an account exists for that email, a reset link is on its way. Check your inbox
+          (and spam). The link is valid for 1 hour.
         </p>
       ) : (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            setSent(true);
-          }}
-          className="space-y-4"
-        >
+        <form action={action} className="space-y-4">
+          {state?.error && (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{state.error}</p>
+          )}
           <div>
             <label className="label" htmlFor="email">Email</label>
-            <input id="email" type="email" required className="input" placeholder="you@university.edu" />
+            <input id="email" name="email" type="email" required className="input" placeholder="you@university.edu" />
           </div>
-          <button type="submit" className="btn btn-primary w-full">Send reset link</button>
+          <SubmitButton pendingText="Sending…">Send reset link</SubmitButton>
         </form>
       )}
 

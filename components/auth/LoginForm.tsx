@@ -6,7 +6,7 @@ import { loginAction, type ActionState } from "@/lib/actions/auth";
 import { SubmitButton } from "@/components/SubmitButton";
 import { PasswordInput } from "@/components/PasswordInput";
 
-export function LoginForm({ next }: { next?: string }) {
+export function LoginForm({ next, resetDone }: { next?: string; resetDone?: boolean }) {
   const [state, action] = useActionState<ActionState, FormData>(loginAction, undefined);
 
   return (
@@ -15,6 +15,12 @@ export function LoginForm({ next }: { next?: string }) {
         <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
         <p className="mt-1 text-sm text-muted">Log in to your Pulse health passport.</p>
       </div>
+
+      {resetDone && (
+        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          Password updated. Log in with your new password.
+        </p>
+      )}
 
       {state?.error && (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{state.error}</p>
