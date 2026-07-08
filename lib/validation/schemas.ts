@@ -1,18 +1,26 @@
 import { z } from "zod";
 import { BLOOD_GROUPS, GENOTYPES, GENDERS } from "@/lib/constants";
 
+/**
+ * Shared email field. Trims surrounding whitespace and lowercases before
+ * validating — mobile keyboards and copy-paste routinely add a trailing space,
+ * which otherwise fails .email() and blocks sign-up. Normalizing here also keeps
+ * stored emails consistent (all lowercase, no stray spaces).
+ */
+const emailSchema = z.string().trim().toLowerCase().email("Enter a valid email");
+
 export const signupSchema = z.object({
-  email: z.string().email("Enter a valid email"),
+  email: emailSchema,
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
 export const loginSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema,
   password: z.string().min(1),
 });
 
 export const forgotPasswordSchema = z.object({
-  email: z.string().email("Enter a valid email"),
+  email: emailSchema,
 });
 
 export const resetPasswordSchema = z.object({
@@ -106,13 +114,13 @@ export type PrescriptionItem = z.infer<typeof prescriptionItemSchema>;
 
 export const staffSchema = z.object({
   name: z.string().min(2, "Enter the staff member's name"),
-  email: z.string().email("Enter a valid email"),
+  email: emailSchema,
   role: z.enum(["doctor", "reception", "admin"]),
 });
 
 export const firstAdminSchema = z.object({
   name: z.string().min(2, "Enter your name"),
-  email: z.string().email("Enter a valid email"),
+  email: emailSchema,
   password: z.string().min(8, "Password must be at least 8 characters"),
   secret: z.string().optional(),
 });
@@ -124,7 +132,7 @@ export const changePasswordSchema = z.object({
 
 export const inviteRegisterSchema = z.object({
   name: z.string().min(2, "Enter your name"),
-  email: z.string().email("Enter a valid email"),
+  email: emailSchema,
   password: z.string().min(8, "Password must be at least 8 characters"),
   code: z.string().min(4, "Enter your invite code"),
 });

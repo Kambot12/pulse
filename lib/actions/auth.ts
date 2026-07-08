@@ -86,7 +86,7 @@ export async function requestPasswordResetAction(
     const base = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
     const link = `${base}/reset-password?token=${rawToken}`;
 
-    await sendEmail({
+    const delivery = await sendEmail({
       to: email,
       subject: "Reset your Pulse password",
       text: `Reset your Pulse password using this link (valid for 1 hour):\n\n${link}\n\nIf you didn't request this, you can safely ignore this email.`,
@@ -99,6 +99,13 @@ export async function requestPasswordResetAction(
         <p style="color:#94a3b8;font-size:13px">If you didn't request this, you can safely ignore this email.</p>
       </div>`,
     });
+
+    // If delivery didn't succeed (no provider, or Resend test-mode rejecting a
+    // non-verified recipient), log the link so an operator can still retrieve it
+    // and password reset isn't fully blocked while email is being set up.
+    if (!delivery.ok) {
+      console.warn(`[password-reset] email not delivered via "${delivery.provider}". Reset link for ${email}: ${link}`);
+    }
   }
 
   // Neutral response regardless of whether the account exists.
