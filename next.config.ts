@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 import withSerwistInit from "@serwist/next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["mongoose", "bcryptjs"],
+  serverExternalPackages: ["mongoose", "bcryptjs", "nodemailer"],
   // Pin the workspace root (a stray lockfile exists in the home dir).
   outputFileTracingRoot: process.cwd(),
   turbopack: { root: process.cwd() },
