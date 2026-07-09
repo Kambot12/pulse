@@ -2,6 +2,7 @@
 
 import crypto from "crypto";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { AuthError } from "next-auth";
 import bcrypt from "bcryptjs";
 import { signIn, signOut } from "@/lib/auth/auth";
@@ -83,7 +84,13 @@ export async function requestPasswordResetAction(
       expiresAt: new Date(Date.now() + 60 * 60_000), // valid for 1 hour
     });
 
-    const base = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
+    // Build the link from the ACTUAL request host so it always points to the
+    // domain the user is on (e.g. pulse-aadn.vercel.app) — even if
+    // NEXT_PUBLIC_APP_URL is unset or misconfigured in the deployment.
+    const h = await headers();
+    const host = h.get("x-forwarded-host") ?? h.get("host");
+    const proto = h.get("x-forwarded-proto") ?? "https";
+    const base = (host ? `${proto}://${host}` : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
     const link = `${base}/reset-password?token=${rawToken}`;
 
     const delivery = await sendEmail({
@@ -127,17 +134,23 @@ export async function resetPasswordAction(
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const { token, password } = parsed.data;
-  await dbConnect();
 
-  const record = await PasswordResetToken.findOne({ tokenHash: sha256(token), usedAt: null });
-  if (!record || record.expiresAt < new Date()) {
-    return { error: "This reset link is invalid or has expired. Please request a new one." };
+  try {
+    await dbConnect();
+    const record = await PasswordResetToken.findOne({ tokenHash: sha256(token), usedAt: null });
+    if (!record || record.expiresAt < new Date()) {
+      return { error: "This reset link is invalid or has expired. Please request a new one." };
+    }
+    const passwordHash = await bcrypt.hash(password, 10);
+    await User.updateOne({ _id: record.userId }, { $set: { passwordHash, mustChangePassword: false } });
+    record.usedAt = new Date();
+    await record.save();
+  } catch (err) {
+    // Never surface a raw 500 to the user on submit.
+    console.error("[password-reset] reset failed:", err);
+    return { error: "Something went wrong resetting your password. Please try again." };
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
-  await User.updateOne({ _id: record.userId }, { $set: { passwordHash, mustChangePassword: false } });
-  record.usedAt = new Date();
-  await record.save();
-
+  // Outside the try so the NEXT_REDIRECT it throws isn't swallowed.
   redirect("/login?reset=1");
 }
