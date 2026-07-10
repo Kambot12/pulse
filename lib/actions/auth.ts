@@ -84,13 +84,16 @@ export async function requestPasswordResetAction(
       expiresAt: new Date(Date.now() + 60 * 60_000), // valid for 1 hour
     });
 
-    // Build the link from the ACTUAL request host so it always points to the
-    // domain the user is on (e.g. pulse-aadn.vercel.app) — even if
-    // NEXT_PUBLIC_APP_URL is unset or misconfigured in the deployment.
+    // Always build the link from the canonical app URL so it points to the clean
+    // production domain even when the request arrives on a Vercel preview/branch
+    // URL (…-git-main-…-projects.vercel.app), which is login-gated and would 500.
+    // Fall back to the request host only if NEXT_PUBLIC_APP_URL isn't set.
     const h = await headers();
     const host = h.get("x-forwarded-host") ?? h.get("host");
     const proto = h.get("x-forwarded-proto") ?? "https";
-    const base = (host ? `${proto}://${host}` : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
+    const base = (
+      process.env.NEXT_PUBLIC_APP_URL || (host ? `${proto}://${host}` : "http://localhost:3000")
+    ).replace(/\/$/, "");
     const link = `${base}/reset-password?token=${rawToken}`;
 
     const delivery = await sendEmail({
