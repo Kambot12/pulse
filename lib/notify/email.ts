@@ -1,13 +1,14 @@
 import "server-only";
 
 /**
- * Email provider with graceful fallback, in priority order:
+ * Email sender — SMTP only (Resend is disabled for now).
  *   1. SMTP (e.g. Gmail app password) — SMTP_HOST/SMTP_USER/SMTP_PASS set.
  *      Works to ANY recipient without a verified domain.
- *   2. Resend HTTP API — RESEND_API_KEY set. Needs a verified domain to send to
- *      arbitrary recipients (otherwise test-mode only reaches the account owner).
- *   3. Neither set — logs the message server-side and reports `skipped` so callers
- *      still succeed (mirrors the SMS stub).
+ *   2. If SMTP isn't configured — logs the message server-side and reports
+ *      `skipped` so callers still succeed (mirrors the SMS stub).
+ *
+ * The Resend HTTP path is intentionally removed; to re-enable it later, restore
+ * the branch from git history (it keyed off RESEND_API_KEY).
  */
 export interface EmailResult {
   ok: boolean;
@@ -23,7 +24,7 @@ interface SendEmailArgs {
 }
 
 export async function sendEmail({ to, subject, html, text }: SendEmailArgs): Promise<EmailResult> {
-  const { SMTP_HOST, SMTP_USER, SMTP_PASS, SMTP_PORT, RESEND_API_KEY, EMAIL_FROM } = process.env;
+  const { SMTP_HOST, SMTP_USER, SMTP_PASS, SMTP_PORT, EMAIL_FROM } = process.env;
 
   // 1) SMTP (Gmail, etc.) — no verified domain required.
   if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
@@ -47,27 +48,7 @@ export async function sendEmail({ to, subject, html, text }: SendEmailArgs): Pro
     }
   }
 
-  // 2) Resend HTTP API.
-  if (RESEND_API_KEY) {
-    const from = EMAIL_FROM || "Pulse <onboarding@resend.dev>";
-    try {
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ from, to, subject, html, text }),
-      });
-      if (!res.ok) {
-        console.error(`[email] Resend error ${res.status}: ${await res.text()}`);
-        return { ok: false, provider: "resend" };
-      }
-      return { ok: true, provider: "resend" };
-    } catch (err) {
-      console.error("[email] Resend send failed:", err);
-      return { ok: false, provider: "resend" };
-    }
-  }
-
-  // 3) No provider configured.
+  // 2) SMTP not configured — log and skip (Resend is disabled).
   console.log(`[email stub] → ${to}: ${subject}\n${text}`);
   return { ok: false, provider: "none", skipped: true };
 }
