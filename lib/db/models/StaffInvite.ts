@@ -2,6 +2,7 @@ import mongoose, { Schema, model, models, type InferSchemaType } from "mongoose"
 
 const StaffInviteSchema = new Schema(
   {
+    orgId: { type: Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
     code: { type: String, required: true, unique: true, index: true },
     role: { type: String, enum: ["doctor", "reception", "admin"], required: true },
     active: { type: Boolean, default: true },

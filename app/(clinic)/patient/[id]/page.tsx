@@ -20,23 +20,25 @@ export default async function PatientWorkspace({ params }: { params: Promise<{ i
   const { id } = await params;
   const user = await getCurrentUser();
   const canEdit = !!user && ["doctor", "admin"].includes(user.role);
+  const orgId = user?.orgId ?? null;
 
   if (!isValidObjectId(id)) {
     return <ErrorCard body="That patient link is invalid." />;
   }
 
   await dbConnect();
-  const profile = await StudentProfile.findById(id).lean<StudentProfileDoc>();
+  // Scoped to the staff member's institution — a clinic can only open its own patients.
+  const profile = await StudentProfile.findOne({ _id: id, orgId }).lean<StudentProfileDoc>();
   if (!profile) return <ErrorCard body="No student is linked to this record." />;
 
   const [activeMeds, records] = await Promise.all([
-    Medication.find({ studentId: profile._id, active: true }).sort({ createdAt: -1 }).lean(),
-    MedicalRecord.find({ studentId: profile._id }).sort({ createdAt: -1 }).limit(20).lean(),
+    Medication.find({ orgId, studentId: profile._id, active: true }).sort({ createdAt: -1 }).lean(),
+    MedicalRecord.find({ orgId, studentId: profile._id }).sort({ createdAt: -1 }).limit(20).lean(),
   ]);
 
   const h = await headers();
   await AuditLog.create({
-    actorId: user?.id, action: "clinic.viewPatient", targetType: "StudentProfile",
+    orgId, actorId: user?.id, action: "clinic.viewPatient", targetType: "StudentProfile",
     targetId: String(profile._id), ip: h.get("x-forwarded-for") ?? "",
   });
 

@@ -14,27 +14,35 @@ import { drugByKey, findDrug } from "@/lib/meds/library";
 import { pushToUserIds } from "@/lib/push";
 import type { ActionState } from "./auth";
 
-const EDITOR_ROLES = ["doctor", "admin"];
+const EDITOR_ROLES = ["doctor", "admin", "superadmin"];
+const CLINIC_ROLES = ["doctor", "reception", "admin", "superadmin"];
 
+/** Doctor/admin + their tenant. Returns null (blocking) if not an editor or no org. */
 async function requireClinician() {
   const session = await auth();
-  if (!session?.user || !EDITOR_ROLES.includes(session.user.role)) return null;
-  return session.user;
+  const user = session?.user;
+  if (!user || !EDITOR_ROLES.includes(user.role) || !user.orgId) return null;
+  return { user, orgId: user.orgId };
 }
 
-const CLINIC_ROLES = ["doctor", "reception", "admin"];
+/** True only if the student exists AND belongs to the given institution. */
+async function studentInOrg(studentId: string, orgId: string): Promise<boolean> {
+  return !!(await StudentProfile.exists({ _id: studentId, orgId }));
+}
 
 export interface PatientHit { id: string; name: string; matricNumber: string }
 
 export async function searchPatientsAction(query: string): Promise<PatientHit[]> {
   const session = await auth();
-  if (!session?.user || !CLINIC_ROLES.includes(session.user.role)) return [];
+  const user = session?.user;
+  if (!user || !CLINIC_ROLES.includes(user.role) || !user.orgId) return [];
   const q = query.trim();
   if (q.length < 2) return [];
 
   await dbConnect();
   const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-  const hits = await StudentProfile.find({ $or: [{ name: rx }, { matricNumber: rx }] })
+  // Scoped to the staff member's institution — never returns another org's students.
+  const hits = await StudentProfile.find({ orgId: user.orgId, $or: [{ name: rx }, { matricNumber: rx }] })
     .limit(8)
     .select("name matricNumber")
     .lean<{ _id: unknown; name: string; matricNumber: string }[]>();
@@ -59,21 +67,25 @@ export async function prescribeMedicationAction(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const user = await requireClinician();
-  if (!user) return { error: "Not authorized to prescribe." };
+  const ctx = await requireClinician();
+  if (!ctx) return { error: "Not authorized to prescribe." };
+  const user = ctx.user;
 
   const parsed = clinicPrescribeSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const { studentId, name, dosage, frequencyKey, durationDays, drugKey, instructions } = parsed.data;
+  await dbConnect();
+  if (!(await studentInOrg(studentId, ctx.orgId))) return { error: "Patient not found." };
+
   const drug = drugKey ? drugByKey(drugKey) : findDrug(name);
   const schedule = generateTimes(frequencyKey);
   const startDate = todayISO();
   const endDate = computeEndDate(startDate, durationDays || null);
   const docName = clinicianName(user);
 
-  await dbConnect();
   await Medication.create({
+    orgId: ctx.orgId,
     studentId, name, dosage, frequencyKey,
     durationDays: durationDays || undefined,
     withFood: drug?.withFood ?? "any",
@@ -84,13 +96,14 @@ export async function prescribeMedicationAction(
   });
 
   await MedicalRecord.create({
+    orgId: ctx.orgId,
     studentId, type: "prescription",
     title: `${name}${dosage ? ` · ${dosage}` : ""}`,
     details: `${frequencyLabel(frequencyKey)}${durationDays ? ` for ${durationDays} days` : ""}.${instructions ? ` ${instructions}` : ""}`,
     doctorId: user.id, doctorName: docName,
   });
 
-  await AuditLog.create({ actorId: user.id, action: "clinic.prescribe", targetType: "StudentProfile", targetId: studentId });
+  await AuditLog.create({ orgId: ctx.orgId, actorId: user.id, action: "clinic.prescribe", targetType: "StudentProfile", targetId: studentId });
   await notifyStudent(studentId, "💊 New prescription", `${docName} prescribed ${name}. Reminders are set.`);
 
   revalidatePath(`/patient/${studentId}`);
@@ -102,18 +115,20 @@ export async function addRecordAction(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const user = await requireClinician();
-  if (!user) return { error: "Not authorized." };
+  const ctx = await requireClinician();
+  if (!ctx) return { error: "Not authorized." };
+  const user = ctx.user;
 
   const parsed = clinicRecordSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const { studentId, type, title, details } = parsed.data;
+  await dbConnect();
+  if (!(await studentInOrg(studentId, ctx.orgId))) return { error: "Patient not found." };
   const docName = clinicianName(user);
 
-  await dbConnect();
-  await MedicalRecord.create({ studentId, type, title, details, doctorId: user.id, doctorName: docName });
-  await AuditLog.create({ actorId: user.id, action: "clinic.addRecord", targetType: "StudentProfile", targetId: studentId });
+  await MedicalRecord.create({ orgId: ctx.orgId, studentId, type, title, details, doctorId: user.id, doctorName: docName });
+  await AuditLog.create({ orgId: ctx.orgId, actorId: user.id, action: "clinic.addRecord", targetType: "StudentProfile", targetId: studentId });
   await notifyStudent(studentId, "📋 New health record", `${docName} added a ${type} record to your timeline.`);
 
   revalidatePath(`/patient/${studentId}`);
@@ -125,8 +140,9 @@ export async function recordConsultationAction(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const user = await requireClinician();
-  if (!user) return { error: "Not authorized." };
+  const ctx = await requireClinician();
+  if (!ctx) return { error: "Not authorized." };
+  const user = ctx.user;
 
   let prescriptions: unknown = [];
   try { prescriptions = JSON.parse(String(formData.get("prescriptions") ?? "[]")); } catch { /* ignore */ }
@@ -142,12 +158,13 @@ export async function recordConsultationAction(
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const { studentId, complaint, diagnosis, notes, pregnant, prescriptions: rxList } = parsed.data;
-  const docName = clinicianName(user);
-
   await dbConnect();
+  if (!(await studentInOrg(studentId, ctx.orgId))) return { error: "Patient not found." };
+  const docName = clinicianName(user);
 
   // 1) The visit episode
   const visit = await MedicalRecord.create({
+    orgId: ctx.orgId,
     studentId, type: "visit",
     title: diagnosis || complaint,
     details: [complaint && `Complaint: ${complaint}`, notes, pregnant && "Patient is pregnant."].filter(Boolean).join(" — "),
@@ -160,6 +177,7 @@ export async function recordConsultationAction(
     const startDate = todayISO();
     const endDate = computeEndDate(startDate, rx.durationDays || null);
     await Medication.create({
+      orgId: ctx.orgId,
       studentId, name: rx.name, dosage: rx.dosage, frequencyKey: rx.frequencyKey,
       durationDays: rx.durationDays || undefined, withFood: drug?.withFood ?? "any",
       drugKey: drug?.key ?? "", schedule: generateTimes(rx.frequencyKey),
@@ -168,6 +186,7 @@ export async function recordConsultationAction(
       prescribedById: user.id, prescribedByName: docName, visitId: visit._id,
     });
     await MedicalRecord.create({
+      orgId: ctx.orgId,
       studentId, type: "prescription", visitId: visit._id,
       title: `${rx.name}${rx.dosage ? ` · ${rx.dosage}` : ""}`,
       details: `${frequencyLabel(rx.frequencyKey)}${rx.durationDays ? ` for ${rx.durationDays} days` : ""}.${rx.instructions ? ` ${rx.instructions}` : ""}`,
@@ -175,7 +194,7 @@ export async function recordConsultationAction(
     });
   }
 
-  await AuditLog.create({ actorId: user.id, action: "clinic.consultation", targetType: "StudentProfile", targetId: studentId });
+  await AuditLog.create({ orgId: ctx.orgId, actorId: user.id, action: "clinic.consultation", targetType: "StudentProfile", targetId: studentId });
   const n = rxList.length;
   await notifyStudent(
     studentId,
@@ -194,16 +213,18 @@ export async function scheduleFollowUpAction(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const user = await requireClinician();
-  if (!user) return { error: "Not authorized." };
+  const ctx = await requireClinician();
+  if (!ctx) return { error: "Not authorized." };
+  const user = ctx.user;
 
   const parsed = clinicFollowUpSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const { studentId, date, time, reason } = parsed.data;
   await dbConnect();
-  await Appointment.create({ studentId, date, time, reason, status: "approved" });
-  await AuditLog.create({ actorId: user.id, action: "clinic.followUp", targetType: "StudentProfile", targetId: studentId });
+  if (!(await studentInOrg(studentId, ctx.orgId))) return { error: "Patient not found." };
+  await Appointment.create({ orgId: ctx.orgId, studentId, date, time, reason, status: "approved" });
+  await AuditLog.create({ orgId: ctx.orgId, actorId: user.id, action: "clinic.followUp", targetType: "StudentProfile", targetId: studentId });
   await notifyStudent(studentId, "📅 Follow-up scheduled", `${clinicianName(user)} booked a follow-up on ${date} at ${time}.`, "/appointments");
 
   revalidatePath(`/patient/${studentId}`);
@@ -215,11 +236,11 @@ export async function updateMedicationByClinicAction(
   medId: string,
   data: { dosage?: string; frequencyKey?: string; durationDays?: number }
 ) {
-  const user = await requireClinician();
-  if (!user) return;
+  const ctx = await requireClinician();
+  if (!ctx) return;
 
   await dbConnect();
-  const med = await Medication.findById(medId);
+  const med = await Medication.findOne({ _id: medId, orgId: ctx.orgId });
   if (!med) return;
 
   if (data.dosage != null) med.dosage = data.dosage;
@@ -230,23 +251,23 @@ export async function updateMedicationByClinicAction(
   }
   await med.save();
 
-  await AuditLog.create({ actorId: user.id, action: "clinic.updateMed", targetType: "Medication", targetId: medId });
-  await notifyStudent(String(med.studentId), "💊 Prescription updated", `${clinicianName(user)} updated ${med.name}.`);
+  await AuditLog.create({ orgId: ctx.orgId, actorId: ctx.user.id, action: "clinic.updateMed", targetType: "Medication", targetId: medId });
+  await notifyStudent(String(med.studentId), "💊 Prescription updated", `${clinicianName(ctx.user)} updated ${med.name}.`);
 
   revalidatePath(`/patient/${med.studentId}`);
   revalidatePath("/medications");
 }
 
 export async function stopMedicationByClinicAction(medId: string) {
-  const user = await requireClinician();
-  if (!user) return;
+  const ctx = await requireClinician();
+  if (!ctx) return;
 
   await dbConnect();
-  const med = await Medication.findByIdAndUpdate(medId, { active: false }, { new: false });
+  const med = await Medication.findOneAndUpdate({ _id: medId, orgId: ctx.orgId }, { active: false }, { new: false });
   if (!med) return;
 
-  await AuditLog.create({ actorId: user.id, action: "clinic.stopMed", targetType: "Medication", targetId: medId });
-  await notifyStudent(String(med.studentId), "💊 Medication stopped", `${clinicianName(user)} stopped ${med.name}.`);
+  await AuditLog.create({ orgId: ctx.orgId, actorId: ctx.user.id, action: "clinic.stopMed", targetType: "Medication", targetId: medId });
+  await notifyStudent(String(med.studentId), "💊 Medication stopped", `${clinicianName(ctx.user)} stopped ${med.name}.`);
 
   revalidatePath(`/patient/${med.studentId}`);
   revalidatePath("/medications");

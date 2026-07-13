@@ -12,9 +12,10 @@ const EmergencyContactSchema = new Schema(
 
 const StudentProfileSchema = new Schema(
   {
+    orgId: { type: Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, unique: true, index: true },
     name: { type: String, required: true },
-    matricNumber: { type: String, required: true, unique: true, index: true, trim: true },
+    matricNumber: { type: String, required: true, index: true, trim: true }, // unique per org (compound index below)
     faculty: { type: String, default: "" },
     department: { type: String, default: "" },
     level: { type: String, default: "" },
@@ -28,9 +29,13 @@ const StudentProfileSchema = new Schema(
     emergencyContact: { type: EmergencyContactSchema, default: () => ({}) },
     healthScore: { type: Number, default: 80, min: 0, max: 100 },
     onboardingComplete: { type: Boolean, default: false },
+    emergencyCode: { type: String, unique: true, sparse: true, index: true }, // stable break-glass /e/<code> link
   },
   { timestamps: true }
 );
+
+// Matric numbers are unique within an institution, not globally.
+StudentProfileSchema.index({ orgId: 1, matricNumber: 1 }, { unique: true });
 
 export type StudentProfileDoc = InferSchemaType<typeof StudentProfileSchema> & {
   _id: mongoose.Types.ObjectId;

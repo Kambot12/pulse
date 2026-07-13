@@ -5,6 +5,7 @@ export type QueueStatus = (typeof QUEUE_STATUS)[number];
 
 const QueueEntrySchema = new Schema(
   {
+    orgId: { type: Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
     studentId: { type: Schema.Types.ObjectId, ref: "StudentProfile", required: true, index: true },
     appointmentId: { type: Schema.Types.ObjectId, ref: "Appointment" },
     studentName: { type: String, default: "" },

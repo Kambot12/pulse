@@ -4,15 +4,15 @@ import { revalidatePath } from "next/cache";
 import { appointmentSchema } from "@/lib/validation/schemas";
 import { dbConnect } from "@/lib/db/connect";
 import { Appointment } from "@/lib/db/models/Appointment";
-import { getCurrentStudentId } from "@/lib/auth/session";
+import { getCurrentStudentId, getCurrentStudentContext } from "@/lib/auth/session";
 import type { ActionState } from "./auth";
 
 export async function bookAppointmentAction(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const studentId = await getCurrentStudentId();
-  if (!studentId) return { error: "Not signed in." };
+  const ctx = await getCurrentStudentContext();
+  if (!ctx) return { error: "Not signed in." };
 
   const parsed = appointmentSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -25,7 +25,8 @@ export async function bookAppointmentAction(
 
   await dbConnect();
   await Appointment.create({
-    studentId,
+    orgId: ctx.orgId,
+    studentId: ctx.studentId,
     date: parsed.data.date,
     time: parsed.data.time,
     reason: parsed.data.reason,

@@ -3,6 +3,7 @@ import mongoose, { Schema, model, models, type InferSchemaType } from "mongoose"
 /** Dedupe record so the reminder cron never sends the same dose slot twice. */
 const DoseReminderSchema = new Schema(
   {
+    orgId: { type: Schema.Types.ObjectId, ref: "Organization", index: true },
     medicationId: { type: Schema.Types.ObjectId, ref: "Medication", required: true },
     slotKey: { type: String, required: true }, // ISO datetime of the dose slot
     sentAt: { type: Date, default: Date.now },

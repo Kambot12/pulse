@@ -50,7 +50,11 @@ export async function updateStudentProfileAction(
   const d = parsed.data;
 
   await dbConnect();
-  const clash = await StudentProfile.findOne({ matricNumber: d.matricNumber, userId: { $ne: session.user.id } });
+  const clash = await StudentProfile.findOne({
+    orgId: session.user.orgId,
+    matricNumber: d.matricNumber,
+    userId: { $ne: session.user.id },
+  });
   if (clash) return { error: "That matric number is already registered to another account." };
 
   await StudentProfile.findOneAndUpdate(

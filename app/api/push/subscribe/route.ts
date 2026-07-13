@@ -17,6 +17,7 @@ export async function POST(req: Request) {
   await PushSubscription.findOneAndUpdate(
     { endpoint: subscription.endpoint },
     {
+      orgId: session.user.orgId ?? undefined,
       userId: session.user.id,
       role: session.user.role,
       endpoint: subscription.endpoint,

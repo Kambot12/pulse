@@ -1,5 +1,6 @@
 import { CalendarClock } from "lucide-react";
 import { dbConnect } from "@/lib/db/connect";
+import { getCurrentUser } from "@/lib/auth/session";
 import { Appointment } from "@/lib/db/models/Appointment";
 import { StudentProfile } from "@/lib/db/models/StudentProfile";
 import { AppointmentApproval } from "@/components/clinic/AppointmentApproval";
@@ -8,15 +9,16 @@ import { toPlain } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export default async function ApprovalsPage() {
+  const orgId = (await getCurrentUser())?.orgId ?? null;
   await dbConnect();
-  const appts = await Appointment.find({ status: { $in: ["pending", "approved"] } })
+  const appts = await Appointment.find({ orgId, status: { $in: ["pending", "approved"] } })
     .sort({ date: 1, time: 1 })
     .limit(50)
     .lean();
 
   // join student names
   const ids = [...new Set(appts.map((a) => String(a.studentId)))];
-  const profiles = await StudentProfile.find({ _id: { $in: ids } }).select("name").lean<{ _id: unknown; name: string }[]>();
+  const profiles = await StudentProfile.find({ orgId, _id: { $in: ids } }).select("name").lean<{ _id: unknown; name: string }[]>();
   const nameById = new Map(profiles.map((p) => [String(p._id), p.name]));
 
   const rows = toPlain(appts).map((a) => ({

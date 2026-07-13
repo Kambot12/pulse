@@ -15,6 +15,7 @@ export const authConfig = {
         token.id = user.id as string;
         token.role = (user as { role?: string }).role ?? "student";
         token.name = (user as { name?: string }).name ?? "";
+        token.orgId = (user as { orgId?: string | null }).orgId ?? null;
         token.onboardingComplete = (user as { onboardingComplete?: boolean }).onboardingComplete ?? false;
         token.mustChangePassword = (user as { mustChangePassword?: boolean }).mustChangePassword ?? false;
       }
@@ -29,6 +30,7 @@ export const authConfig = {
         session.user.id = token.id as string;
         session.user.role = (token.role as string) ?? "student";
         session.user.name = (token.name as string) ?? "";
+        session.user.orgId = (token.orgId as string | null) ?? null;
         session.user.onboardingComplete = Boolean(token.onboardingComplete);
         session.user.mustChangePassword = Boolean(token.mustChangePassword);
       }

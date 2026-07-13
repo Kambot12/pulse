@@ -5,6 +5,7 @@ export type DoseStatus = (typeof DOSE_STATUS)[number];
 
 const MedicationLogSchema = new Schema(
   {
+    orgId: { type: Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
     medicationId: { type: Schema.Types.ObjectId, ref: "Medication", required: true, index: true },
     studentId: { type: Schema.Types.ObjectId, ref: "StudentProfile", required: true, index: true },
     scheduledFor: { type: Date, required: true },

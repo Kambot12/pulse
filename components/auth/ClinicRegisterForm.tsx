@@ -43,7 +43,7 @@ export function ClinicRegisterForm() {
       <SubmitButton pendingText="Creating account…">Create account</SubmitButton>
 
       <p className="pt-1 text-center text-sm text-muted">
-        Already have an account? <Link href="/clinic" className="font-medium text-brand-ink hover:underline">Sign in</Link>
+        Already have an account? <Link href="/login" className="font-medium text-brand-ink hover:underline">Sign in</Link>
       </p>
     </form>
   );

@@ -1,5 +1,6 @@
 import { Siren } from "lucide-react";
 import { dbConnect } from "@/lib/db/connect";
+import { getCurrentUser } from "@/lib/auth/session";
 import { EmergencyAlert } from "@/lib/db/models/EmergencyAlert";
 import { EmergencyList } from "@/components/clinic/EmergencyList";
 import { toPlain } from "@/lib/utils";
@@ -7,9 +8,10 @@ import { toPlain } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export default async function EmergenciesPage() {
+  const orgId = (await getCurrentUser())?.orgId ?? null;
   await dbConnect();
   const alerts = toPlain(
-    await EmergencyAlert.find({ status: { $in: ["active", "acknowledged"] } })
+    await EmergencyAlert.find({ orgId, status: { $in: ["active", "acknowledged"] } })
       .sort({ createdAt: -1 })
       .limit(50)
       .lean()

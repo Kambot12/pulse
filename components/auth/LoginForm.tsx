@@ -13,7 +13,7 @@ export function LoginForm({ next, resetDone }: { next?: string; resetDone?: bool
     <form action={action} className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
-        <p className="mt-1 text-sm text-muted">Log in to your Pulse health passport.</p>
+        <p className="mt-1 text-sm text-muted">Log in to Pulse — students, clinic staff &amp; admins.</p>
       </div>
 
       {resetDone && (
@@ -26,7 +26,7 @@ export function LoginForm({ next, resetDone }: { next?: string; resetDone?: bool
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{state.error}</p>
       )}
 
-      <input type="hidden" name="next" value={next ?? "/dashboard"} />
+      {next ? <input type="hidden" name="next" value={next} /> : null}
       <div>
         <label className="label" htmlFor="email">Email</label>
         <input id="email" name="email" type="email" required className="input" placeholder="you@university.edu" />
@@ -42,9 +42,10 @@ export function LoginForm({ next, resetDone }: { next?: string; resetDone?: bool
         <Link href="/forgot-password" className="text-brand-ink hover:underline">Forgot password?</Link>
         <Link href="/signup" className="text-brand-ink hover:underline">Create account</Link>
       </div>
-      <p className="border-t border-line pt-3 text-center text-sm text-muted">
-        Clinic staff? <Link href="/clinic" className="font-medium text-brand-ink hover:underline">Sign in here</Link>
-      </p>
+      <div className="space-y-1 border-t border-line pt-3 text-center text-sm text-muted">
+        <p>Staff with an invite code? <Link href="/clinic/register" className="font-medium text-brand-ink hover:underline">Register here</Link></p>
+        <p>Setting up Pulse for a new organization? <Link href="/setup" className="font-medium text-brand-ink hover:underline">Get started</Link></p>
+      </div>
     </form>
   );
 }

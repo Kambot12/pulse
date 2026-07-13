@@ -1,5 +1,6 @@
 import { ListOrdered } from "lucide-react";
 import { dbConnect } from "@/lib/db/connect";
+import { getCurrentUser } from "@/lib/auth/session";
 import { QueueEntry } from "@/lib/db/models/QueueEntry";
 import { QueueBoard } from "@/components/clinic/QueueBoard";
 import { toPlain } from "@/lib/utils";
@@ -7,12 +8,13 @@ import { toPlain } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export default async function QueueBoardPage() {
+  const orgId = (await getCurrentUser())?.orgId ?? null;
   await dbConnect();
   const start = new Date(); start.setHours(0, 0, 0, 0);
   const end = new Date(start); end.setDate(end.getDate() + 1);
 
   const entries = toPlain(
-    await QueueEntry.find({ status: { $in: ["waiting", "in_progress"] }, enqueuedAt: { $gte: start, $lt: end } })
+    await QueueEntry.find({ orgId, status: { $in: ["waiting", "in_progress"] }, enqueuedAt: { $gte: start, $lt: end } })
       .sort({ number: 1 })
       .lean()
   ).map((e) => ({

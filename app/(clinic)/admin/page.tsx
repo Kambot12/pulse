@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import mongoose from "mongoose";
 import { Users, CalendarClock, Activity, Pill, Siren, ListOrdered, TrendingDown } from "lucide-react";
 import { dbConnect } from "@/lib/db/connect";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -15,7 +16,10 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 export default async function AdminDashboard() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  if (user.role !== "admin") redirect("/doctor");
+  if (!["admin", "superadmin"].includes(user.role)) redirect("/doctor");
+  if (!user.orgId) redirect("/login");
+  const orgId = user.orgId;
+  const orgObjId = new mongoose.Types.ObjectId(orgId);
 
   await dbConnect();
   const start = new Date(); start.setHours(0, 0, 0, 0);
@@ -24,21 +28,23 @@ export default async function AdminDashboard() {
 
   const [students, apptTotal, activeMeds, activeEmergencies, servedToday, waitingNow,
     noShows, completed, conditionsAgg, medsAgg] = await Promise.all([
-    StudentProfile.countDocuments({}),
-    Appointment.countDocuments({}),
-    Medication.countDocuments({ active: true }),
-    EmergencyAlert.countDocuments({ status: { $in: ["active", "acknowledged"] } }),
-    QueueEntry.countDocuments({ status: "done", enqueuedAt: { $gte: start, $lt: end } }),
-    QueueEntry.countDocuments({ status: "waiting", enqueuedAt: { $gte: start, $lt: end } }),
-    Appointment.countDocuments({ status: "approved", date: { $lt: todayStr } }),
-    Appointment.countDocuments({ status: "completed" }),
+    StudentProfile.countDocuments({ orgId }),
+    Appointment.countDocuments({ orgId }),
+    Medication.countDocuments({ orgId, active: true }),
+    EmergencyAlert.countDocuments({ orgId, status: { $in: ["active", "acknowledged"] } }),
+    QueueEntry.countDocuments({ orgId, status: "done", enqueuedAt: { $gte: start, $lt: end } }),
+    QueueEntry.countDocuments({ orgId, status: "waiting", enqueuedAt: { $gte: start, $lt: end } }),
+    Appointment.countDocuments({ orgId, status: "approved", date: { $lt: todayStr } }),
+    Appointment.countDocuments({ orgId, status: "completed" }),
     StudentProfile.aggregate<{ _id: string; count: number }>([
+      { $match: { orgId: orgObjId } },
       { $unwind: "$medicalConditions" },
       { $match: { medicalConditions: { $ne: "" } } },
       { $group: { _id: { $toLower: "$medicalConditions" }, count: { $sum: 1 } } },
       { $sort: { count: -1 } }, { $limit: 6 },
     ]),
     Medication.aggregate<{ _id: string; count: number }>([
+      { $match: { orgId: orgObjId } },
       { $group: { _id: "$name", count: { $sum: 1 } } },
       { $sort: { count: -1 } }, { $limit: 6 },
     ]),

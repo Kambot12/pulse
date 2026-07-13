@@ -7,6 +7,7 @@ export type AppointmentStatus = (typeof APPOINTMENT_STATUS)[number];
 
 const AppointmentSchema = new Schema(
   {
+    orgId: { type: Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
     studentId: { type: Schema.Types.ObjectId, ref: "StudentProfile", required: true, index: true },
     date: { type: String, required: true }, // ISO date (YYYY-MM-DD)
     time: { type: String, required: true }, // HH:mm

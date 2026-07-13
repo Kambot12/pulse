@@ -14,6 +14,8 @@ export async function onboardingAction(
 ): Promise<ActionState> {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  const orgId = session.user.orgId;
+  if (!orgId) return { error: "Your account isn't linked to an institution. Please sign up again." };
 
   const parsed = onboardingSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) {
@@ -23,8 +25,9 @@ export async function onboardingAction(
 
   await dbConnect();
 
-  // matric number must be unique across students
+  // matric number must be unique within the institution
   const clash = await StudentProfile.findOne({
+    orgId,
     matricNumber: d.matricNumber,
     userId: { $ne: session.user.id },
   });
@@ -33,6 +36,7 @@ export async function onboardingAction(
   await StudentProfile.findOneAndUpdate(
     { userId: session.user.id },
     {
+      orgId,
       userId: session.user.id,
       name: d.name,
       matricNumber: d.matricNumber,

@@ -9,7 +9,7 @@ import { AuditLog } from "@/lib/db/models/AuditLog";
 import { pushToRoles } from "@/lib/push";
 import { sendSms } from "@/lib/notify/sms";
 
-const CLINIC_ROLES = ["doctor", "reception", "admin"];
+const CLINIC_ROLES = ["doctor", "reception", "admin", "superadmin"];
 
 export interface SosResult { ok: boolean; alertId?: string; error?: string }
 
@@ -23,6 +23,8 @@ export async function triggerEmergencyAction(input: {
   const profile = await StudentProfile.findOne({ userId: session.user.id }).lean<StudentProfileDoc>();
   if (!profile) return { ok: false, error: "No student profile found." };
 
+  const orgId = String(profile.orgId);
+
   // Rate-limit: reuse an in-flight alert from the last 5 minutes instead of spamming.
   const recent = await EmergencyAlert.findOne({
     studentId: profile._id,
@@ -32,6 +34,7 @@ export async function triggerEmergencyAction(input: {
   if (recent) return { ok: true, alertId: String(recent._id) };
 
   const alert = await EmergencyAlert.create({
+    orgId,
     studentId: profile._id,
     status: "active",
     location:
@@ -51,20 +54,21 @@ export async function triggerEmergencyAction(input: {
   });
 
   await AuditLog.create({
+    orgId,
     actorId: session.user.id,
     action: "emergency.trigger",
     targetType: "EmergencyAlert",
     targetId: String(alert._id),
   });
 
-  // Channel 1+2: live dashboard (via the record) + push to clinic staff.
+  // Channel 1+2: live dashboard (via the record) + push to THIS clinic's staff only.
   await pushToRoles(CLINIC_ROLES, {
     title: "🆘 Emergency SOS",
     body: `${profile.name} (${profile.matricNumber}) needs help. Blood ${profile.bloodGroup ?? "—"}, genotype ${profile.genotype ?? "—"}.`,
     url: "/emergencies",
     tag: `sos-${alert._id}`,
     urgent: true,
-  });
+  }, orgId);
 
   // Channel 4: SMS (stubbed until a provider is configured).
   await sendSms("clinic", `SOS: ${profile.name} ${profile.matricNumber} triggered an emergency.`);
@@ -78,27 +82,28 @@ export async function triggerEmergencyAction(input: {
 
 async function requireStaff() {
   const session = await auth();
-  if (!session?.user || !CLINIC_ROLES.includes(session.user.role)) return null;
-  return session.user;
+  const user = session?.user;
+  if (!user || !CLINIC_ROLES.includes(user.role) || !user.orgId) return null;
+  return { user, orgId: user.orgId };
 }
 
 export async function acknowledgeEmergencyAction(id: string) {
-  const user = await requireStaff();
-  if (!user) return;
+  const ctx = await requireStaff();
+  if (!ctx) return;
   await dbConnect();
   await EmergencyAlert.updateOne(
-    { _id: id, status: "active" },
-    { status: "acknowledged", acknowledgedBy: user.id, acknowledgedAt: new Date() }
+    { _id: id, orgId: ctx.orgId, status: "active" },
+    { status: "acknowledged", acknowledgedBy: ctx.user.id, acknowledgedAt: new Date() }
   );
-  await AuditLog.create({ actorId: user.id, action: "emergency.acknowledge", targetType: "EmergencyAlert", targetId: id });
+  await AuditLog.create({ orgId: ctx.orgId, actorId: ctx.user.id, action: "emergency.acknowledge", targetType: "EmergencyAlert", targetId: id });
   revalidatePath("/emergencies");
 }
 
 export async function resolveEmergencyAction(id: string) {
-  const user = await requireStaff();
-  if (!user) return;
+  const ctx = await requireStaff();
+  if (!ctx) return;
   await dbConnect();
-  await EmergencyAlert.updateOne({ _id: id }, { status: "resolved", resolvedAt: new Date() });
-  await AuditLog.create({ actorId: user.id, action: "emergency.resolve", targetType: "EmergencyAlert", targetId: id });
+  await EmergencyAlert.updateOne({ _id: id, orgId: ctx.orgId }, { status: "resolved", resolvedAt: new Date() });
+  await AuditLog.create({ orgId: ctx.orgId, actorId: ctx.user.id, action: "emergency.resolve", targetType: "EmergencyAlert", targetId: id });
   revalidatePath("/emergencies");
 }

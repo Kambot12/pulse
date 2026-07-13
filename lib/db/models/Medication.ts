@@ -2,6 +2,7 @@ import mongoose, { Schema, model, models, type InferSchemaType } from "mongoose"
 
 const MedicationSchema = new Schema(
   {
+    orgId: { type: Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
     studentId: { type: Schema.Types.ObjectId, ref: "StudentProfile", required: true, index: true },
     name: { type: String, required: true },
     dosage: { type: String, default: "" },

@@ -12,6 +12,7 @@ const emailSchema = z.string().trim().toLowerCase().email("Enter a valid email")
 export const signupSchema = z.object({
   email: emailSchema,
   password: z.string().min(8, "Password must be at least 8 characters"),
+  // institution is inferred from the email domain (with a default fallback) — no picker
 });
 
 export const loginSchema = z.object({
@@ -26,6 +27,12 @@ export const forgotPasswordSchema = z.object({
 export const resetPasswordSchema = z.object({
   token: z.string().min(1, "Missing reset token"),
   password: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+export const journalSchema = z.object({
+  symptoms: z.array(z.string()).min(1, "Select at least one symptom"),
+  severity: z.enum(["mild", "moderate", "severe"]),
+  notes: z.string().max(1000).default(""),
 });
 
 /** Multi-step onboarding — a comma string is normalised to a list. */
@@ -123,6 +130,39 @@ export const firstAdminSchema = z.object({
   email: emailSchema,
   password: z.string().min(8, "Password must be at least 8 characters"),
   secret: z.string().optional(),
+});
+
+// Kept in sync with FONT_KEYS in lib/db/models/Organization.ts (inlined here so
+// this shared schema never imports the mongoose model into client bundles).
+const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Use a hex color like #0ea5a4");
+
+const domainField = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .refine((v) => v === "" || /^[a-z0-9.-]+\.[a-z]{2,}$/.test(v), "Enter a domain like acme.edu")
+  .default("");
+
+export const orgCreateSchema = z.object({
+  name: z.string().min(2, "Enter the institution name"),
+  slug: z.string().trim().toLowerCase().regex(/^[a-z0-9-]{2,32}$/, "Slug: 2–32 lowercase letters, numbers, hyphens"),
+  emailDomain: domainField, // optional; students on this domain auto-join
+  adminName: z.string().min(2, "Enter the admin's name"),
+  adminEmail: emailSchema,
+  brand: hexColor.default("#0ea5a4"),
+  accent: hexColor.default("#6366f1"),
+  fontKey: z.enum(["geist", "inter", "manrope", "plus-jakarta"]).default("geist"),
+  logoDataUri: z.string().default(""),
+});
+
+export const orgSettingsSchema = z.object({
+  orgId: z.string().min(1),
+  name: z.string().min(2, "Enter the institution name"),
+  emailDomain: domainField,
+  brand: hexColor.default("#0ea5a4"),
+  accent: hexColor.default("#6366f1"),
+  fontKey: z.enum(["geist", "inter", "manrope", "plus-jakarta"]).default("geist"),
+  logoDataUri: z.string().default(""),
 });
 
 export const changePasswordSchema = z.object({

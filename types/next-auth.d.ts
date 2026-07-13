@@ -5,6 +5,7 @@ declare module "next-auth" {
     user: {
       id: string;
       role: string;
+      orgId: string | null;
       onboardingComplete: boolean;
       mustChangePassword: boolean;
     } & DefaultSession["user"];
@@ -12,6 +13,7 @@ declare module "next-auth" {
 
   interface User {
     role?: string;
+    orgId?: string | null;
     onboardingComplete?: boolean;
     mustChangePassword?: boolean;
   }
@@ -21,6 +23,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     id?: string;
     role?: string;
+    orgId?: string | null;
     onboardingComplete?: boolean;
     mustChangePassword?: boolean;
   }

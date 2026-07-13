@@ -2,6 +2,7 @@ import mongoose, { Schema, model, models, type InferSchemaType } from "mongoose"
 
 const AuditLogSchema = new Schema(
   {
+    orgId: { type: Schema.Types.ObjectId, ref: "Organization", index: true }, // may be null for break-glass/platform
     actorId: { type: Schema.Types.ObjectId, ref: "User" },
     actorLabel: { type: String, default: "" }, // e.g. "break-glass", clinic name
     action: { type: String, required: true }, // "passport.view", "record.read", "break_glass"

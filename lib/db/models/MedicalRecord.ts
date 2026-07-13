@@ -5,6 +5,7 @@ export type RecordType = (typeof RECORD_TYPES)[number];
 
 const MedicalRecordSchema = new Schema(
   {
+    orgId: { type: Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
     studentId: { type: Schema.Types.ObjectId, ref: "StudentProfile", required: true, index: true },
     type: { type: String, enum: [...RECORD_TYPES], required: true },
     title: { type: String, required: true },

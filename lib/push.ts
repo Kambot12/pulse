@@ -58,6 +58,13 @@ export function pushToUserIds(userIds: (string | unknown)[], payload: PushPayloa
   return sendToQuery({ userId: { $in: userIds } }, payload);
 }
 
-export function pushToRoles(roles: string[], payload: PushPayload) {
-  return sendToQuery({ role: { $in: roles } }, payload);
+/**
+ * Push to staff by role. `orgId` scopes it to a single institution — always pass
+ * it for tenant-specific alerts (e.g. emergencies) so School A's SOS never
+ * reaches School B's staff.
+ */
+export function pushToRoles(roles: string[], payload: PushPayload, orgId?: string) {
+  const query: Record<string, unknown> = { role: { $in: roles } };
+  if (orgId) query.orgId = orgId;
+  return sendToQuery(query, payload);
 }

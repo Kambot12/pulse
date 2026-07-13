@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Users, ListOrdered, CalendarClock } from "lucide-react";
 import { dbConnect } from "@/lib/db/connect";
+import { getCurrentUser } from "@/lib/auth/session";
 import { Appointment } from "@/lib/db/models/Appointment";
 import { StudentProfile } from "@/lib/db/models/StudentProfile";
 import { QueueEntry } from "@/lib/db/models/QueueEntry";
@@ -11,19 +12,20 @@ import { toPlain } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export default async function ReceptionDashboard() {
+  const orgId = (await getCurrentUser())?.orgId ?? null;
   await dbConnect();
   const start = new Date(); start.setHours(0, 0, 0, 0);
   const end = new Date(start); end.setDate(end.getDate() + 1);
 
   const [appts, waiting, serving, pendingCount] = await Promise.all([
-    Appointment.find({ status: { $in: ["pending", "approved"] } }).sort({ date: 1, time: 1 }).limit(20).lean(),
-    QueueEntry.countDocuments({ status: "waiting", enqueuedAt: { $gte: start, $lt: end } }),
-    QueueEntry.findOne({ status: "in_progress", enqueuedAt: { $gte: start, $lt: end } }).lean<{ number: number } | null>(),
-    Appointment.countDocuments({ status: "pending" }),
+    Appointment.find({ orgId, status: { $in: ["pending", "approved"] } }).sort({ date: 1, time: 1 }).limit(20).lean(),
+    QueueEntry.countDocuments({ orgId, status: "waiting", enqueuedAt: { $gte: start, $lt: end } }),
+    QueueEntry.findOne({ orgId, status: "in_progress", enqueuedAt: { $gte: start, $lt: end } }).lean<{ number: number } | null>(),
+    Appointment.countDocuments({ orgId, status: "pending" }),
   ]);
 
   const ids = [...new Set(appts.map((a) => String(a.studentId)))];
-  const profiles = await StudentProfile.find({ _id: { $in: ids } }).select("name").lean<{ _id: unknown; name: string }[]>();
+  const profiles = await StudentProfile.find({ orgId, _id: { $in: ids } }).select("name").lean<{ _id: unknown; name: string }[]>();
   const nameById = new Map(profiles.map((p) => [String(p._id), p.name]));
   const rows = toPlain(appts).map((a) => ({
     _id: String(a._id), studentName: nameById.get(String(a.studentId)) ?? "Student",

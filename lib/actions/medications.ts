@@ -5,7 +5,7 @@ import { medicationSchema } from "@/lib/validation/schemas";
 import { dbConnect } from "@/lib/db/connect";
 import { Medication } from "@/lib/db/models/Medication";
 import { MedicationLog, type DoseStatus } from "@/lib/db/models/MedicationLog";
-import { getCurrentStudentId } from "@/lib/auth/session";
+import { getCurrentStudentId, getCurrentStudentContext } from "@/lib/auth/session";
 import { generateTimes, computeEndDate, todayISO } from "@/lib/meds/schedule";
 import { drugByKey, findDrug } from "@/lib/meds/library";
 import type { ActionState } from "./auth";
@@ -14,8 +14,8 @@ export async function addMedicationAction(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const studentId = await getCurrentStudentId();
-  if (!studentId) return { error: "Not signed in." };
+  const ctx = await getCurrentStudentContext();
+  if (!ctx) return { error: "Not signed in." };
 
   const parsed = medicationSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -28,7 +28,8 @@ export async function addMedicationAction(
 
   await dbConnect();
   await Medication.create({
-    studentId,
+    orgId: ctx.orgId,
+    studentId: ctx.studentId,
     name,
     dosage,
     frequencyKey,
@@ -50,8 +51,8 @@ export async function addMedicationAction(
 
 /** Records that a scheduled dose was taken or skipped (idempotent per slot). */
 export async function logDoseAction(medicationId: string, time: string, status: DoseStatus) {
-  const studentId = await getCurrentStudentId();
-  if (!studentId) return;
+  const ctx = await getCurrentStudentContext();
+  if (!ctx) return;
 
   const scheduledFor = new Date();
   if (/^\d{1,2}:\d{2}$/.test(time)) {
@@ -63,8 +64,8 @@ export async function logDoseAction(medicationId: string, time: string, status: 
 
   await dbConnect();
   await MedicationLog.findOneAndUpdate(
-    { medicationId, scheduledFor },
-    { medicationId, studentId, scheduledFor, status, actedAt: new Date() },
+    { medicationId, studentId: ctx.studentId, scheduledFor },
+    { orgId: ctx.orgId, medicationId, studentId: ctx.studentId, scheduledFor, status, actedAt: new Date() },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
 

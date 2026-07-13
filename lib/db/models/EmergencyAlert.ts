@@ -5,6 +5,7 @@ export type EmergencyStatus = (typeof EMERGENCY_STATUS)[number];
 
 const EmergencyAlertSchema = new Schema(
   {
+    orgId: { type: Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
     studentId: { type: Schema.Types.ObjectId, ref: "StudentProfile", required: true, index: true },
     status: { type: String, enum: [...EMERGENCY_STATUS], default: "active", index: true },
     location: {

@@ -1,5 +1,5 @@
 import { dbConnect } from "@/lib/db/connect";
-import { getCurrentStudentId } from "@/lib/auth/session";
+import { getCurrentStudentContext } from "@/lib/auth/session";
 import { QueueEntry } from "@/lib/db/models/QueueEntry";
 import { LiveQueue, type QueueData } from "@/components/student/LiveQueue";
 
@@ -8,7 +8,9 @@ export const dynamic = "force-dynamic";
 const MINUTES_PER_PATIENT = 8;
 
 export default async function QueuePage() {
-  const studentId = (await getCurrentStudentId())!;
+  const ctx = await getCurrentStudentContext();
+  const studentId = ctx?.studentId;
+  const orgId = ctx?.orgId ?? null;
   await dbConnect();
 
   const start = new Date(); start.setHours(0, 0, 0, 0);
@@ -25,6 +27,7 @@ export default async function QueuePage() {
     data = { state: "serving", number: mine.number };
   } else {
     const ahead = await QueueEntry.countDocuments({
+      orgId,
       status: { $in: ["waiting", "in_progress"] },
       enqueuedAt: { $gte: start, $lt: end },
       number: { $lt: mine.number },

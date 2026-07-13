@@ -1,4 +1,5 @@
 import type { TriageResult } from "@/lib/intelligence/triage";
+import { SYMPTOM_LABEL } from "@/lib/intelligence/symptoms";
 
 /** Profile context used to tailor (never personalise medical advice) the assistant. */
 export interface AssistantContext {
@@ -43,6 +44,49 @@ export function fallbackReply(_message: string, triage: TriageResult): string {
   return `${lead}
 
 (Pulse's AI assistant isn't fully set up yet, so this is general guidance from Pulse's built-in safety rules — not a diagnosis. Please confirm anything personal with a clinician.)`;
+}
+
+// ---- Symptom-journal pattern summary (Gemini + rules fallback) ----
+
+export function buildJournalSummaryPrompt(): string {
+  return `You are Pulse, a warm health-education assistant for university students in Sub-Saharan Africa.
+You are given a student's recent symptom-journal entries, one per line as "date: symptoms (severity) — notes".
+
+Write a SHORT, friendly summary (3–5 sentences or a few bullets) of any PATTERNS you notice — recurring
+symptoms, timing, or likely everyday triggers (stress, exam periods, poor sleep, dehydration, skipped meals).
+Offer gentle, general self-care suggestions.
+
+STRICT RULES:
+- Do NOT diagnose any condition. Do NOT name any medicine or dose.
+- Encourage booking a campus-clinic appointment for anything recurring, worsening, or concerning.
+- If entries suggest an emergency, tell them to seek urgent care and use the SOS button.
+- End with a one-line reminder that this is general information, not a diagnosis.`;
+}
+
+interface JournalEntryLike { entryDate: Date | string; symptoms?: string[]; severity?: string; notes?: string }
+
+export function journalLines(entries: JournalEntryLike[]): string {
+  return entries
+    .map((e) => {
+      const date = new Date(e.entryDate).toISOString().slice(0, 10);
+      const syms = (e.symptoms ?? []).map((s) => SYMPTOM_LABEL[s] ?? s).join(", ") || "unspecified";
+      return `${date}: ${syms} (${e.severity ?? "mild"})${e.notes ? ` — ${e.notes}` : ""}`;
+    })
+    .join("\n");
+}
+
+/** Deterministic summary used when no AI key is configured. */
+export function rulesJournalSummary(entries: JournalEntryLike[]): string {
+  const counts: Record<string, number> = {};
+  for (const e of entries) for (const s of e.symptoms ?? []) counts[s] = (counts[s] ?? 0) + 1;
+  const top = Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([k, n]) => `${SYMPTOM_LABEL[k] ?? k} (${n}×)`);
+  const severe = entries.filter((e) => e.severity === "severe").length;
+  return `Over your last ${entries.length} entr${entries.length === 1 ? "y" : "ies"}, your most frequent symptoms were ${
+    top.join(", ") || "varied"
+  }. ${severe ? `You logged ${severe} severe episode${severe > 1 ? "s" : ""} — please get those checked at the clinic. ` : ""}If a symptom keeps recurring or is getting worse, book an appointment. This is general information, not a diagnosis.`;
 }
 
 export const STARTER_QUESTIONS = [

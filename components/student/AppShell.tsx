@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, QrCode, Activity, User, Pill, CalendarClock, Stethoscope, ListOrdered, Bot, Settings, Menu, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, QrCode, Activity, User, Pill, CalendarClock, Stethoscope, ListOrdered, Bot, Settings, Menu, NotebookPen, type LucideIcon } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { LogoutButton } from "./LogoutButton";
+import { EmergencyMode } from "./EmergencyMode";
 import { cn, initials } from "@/lib/utils";
 
 const NAV: { href: string; label: string; icon: LucideIcon; primary?: boolean }[] = [
@@ -15,6 +16,7 @@ const NAV: { href: string; label: string; icon: LucideIcon; primary?: boolean }[
   { href: "/queue", label: "Queue", icon: ListOrdered },
   { href: "/assistant", label: "Assistant", icon: Bot },
   { href: "/symptoms", label: "Symptoms", icon: Stethoscope },
+  { href: "/journal", label: "Journal", icon: NotebookPen },
   { href: "/passport", label: "Passport", icon: QrCode, primary: true },
   { href: "/timeline", label: "Timeline", icon: Activity },
   { href: "/profile", label: "Profile", icon: User },
@@ -26,7 +28,7 @@ const BOTTOM = NAV.filter((i) => i.primary).slice(0, 4);
 const bottomHrefs = new Set(BOTTOM.map((i) => i.href));
 const MORE = NAV.filter((i) => !bottomHrefs.has(i.href));
 
-export function AppShell({ name, children }: { name: string; children: React.ReactNode }) {
+export function AppShell({ name, children, orgName = "Pulse", orgLogo = "" }: { name: string; children: React.ReactNode; orgName?: string; orgLogo?: string }) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
@@ -39,7 +41,7 @@ export function AppShell({ name, children }: { name: string; children: React.Rea
     <div className="mx-auto flex min-h-dvh w-full max-w-6xl">
       {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col gap-1 border-r border-line px-4 py-6 md:flex">
-        <div className="px-2 pb-4"><Logo /></div>
+        <div className="px-2 pb-4"><Logo logoDataUri={orgLogo} label={orgName} /></div>
         <nav className="flex flex-1 flex-col gap-1">
           {NAV.map((item) => (
             <Link
@@ -67,11 +69,14 @@ export function AppShell({ name, children }: { name: string; children: React.Rea
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Mobile top bar */}
         <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-background/80 px-4 py-3 backdrop-blur md:hidden">
-          <Logo size={32} />
+          <Logo size={32} logoDataUri={orgLogo} label={orgName} />
           <div className="brand-gradient grid size-9 place-items-center rounded-full text-sm font-bold text-white">{initials(name)}</div>
         </header>
 
         <main className="flex-1 px-4 pb-24 pt-5 md:px-8 md:pb-10 md:pt-8">{children}</main>
+
+        {/* Global quick-access Emergency Mode (shake or button) */}
+        <EmergencyMode />
 
         {/* Mobile "More" sheet */}
         {moreOpen && (

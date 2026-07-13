@@ -7,10 +7,25 @@ import { AuthError } from "next-auth";
 import bcrypt from "bcryptjs";
 import { signIn, signOut } from "@/lib/auth/auth";
 import { signupSchema, forgotPasswordSchema, resetPasswordSchema } from "@/lib/validation/schemas";
+import { isPublicEmailDomain } from "@/lib/constants";
 import { dbConnect } from "@/lib/db/connect";
 import { User } from "@/lib/db/models/User";
+import { Organization } from "@/lib/db/models/Organization";
 import { PasswordResetToken } from "@/lib/db/models/PasswordResetToken";
 import { sendEmail } from "@/lib/notify/email";
+import { devEmail } from "@/lib/dev/auth";
+
+/** Where each identity lands after login. */
+function roleHome(role?: string): string {
+  switch (role) {
+    case "developer": return "/dev";
+    case "superadmin": return "/platform";
+    case "admin":
+    case "doctor":
+    case "reception": return "/doctor";
+    default: return "/dashboard";
+  }
+}
 
 export type ActionState = { error?: string } | undefined;
 export type ResetRequestState = { ok?: boolean; error?: string } | undefined;
@@ -26,26 +41,46 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
 
   const email = parsed.data.email.toLowerCase();
   const { password } = parsed.data;
+  const domain = email.split("@")[1] ?? "";
 
   await dbConnect();
+  // Personal providers (gmail.com, etc.) always go to the default institution;
+  // otherwise match by the school's email domain, then fall back to the default.
+  const matched = isPublicEmailDomain(domain)
+    ? null
+    : await Organization.findOne({ emailDomain: domain, active: true }).select("_id").lean<{ _id: unknown }>();
+  const org = matched || (await Organization.findOne({ isDefault: true, active: true }).select("_id").lean<{ _id: unknown }>());
+  if (!org) return { error: "No institution is available yet. Please ask your clinic administrator." };
+
   const existing = await User.findOne({ email });
   if (existing) return { error: "That email is already registered. Try logging in." };
 
   const passwordHash = await bcrypt.hash(password, 10);
-  await User.create({ email, passwordHash, role: "student" });
+  await User.create({ orgId: org._id, email, passwordHash, role: "student" });
 
   // signIn throws a redirect on success (NEXT_REDIRECT) — let it propagate.
   await signIn("credentials", { email, password, redirectTo: "/onboarding" });
 }
 
 export async function loginAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const next = formData.get("next")?.toString() || "/dashboard";
+  const email = String(formData.get("email") ?? "").toLowerCase().trim();
+  const password = String(formData.get("password") ?? "");
+
+  // Decide where they land from their identity (password is still enforced by authorize).
+  let target = "/dashboard";
+  if (email === devEmail()) {
+    target = "/dev";
+  } else if (email) {
+    await dbConnect();
+    const u = await User.findOne({ email }).select("role").lean<{ role?: string }>();
+    target = roleHome(u?.role);
+  }
+  // Honor a deep-link from middleware (e.g. ?next=/passport) when present.
+  const nextParam = formData.get("next")?.toString();
+  const redirectTo = nextParam && nextParam.startsWith("/") ? nextParam : target;
+
   try {
-    await signIn("credentials", {
-      email: formData.get("email"),
-      password: formData.get("password"),
-      redirectTo: next,
-    });
+    await signIn("credentials", { email, password, redirectTo });
   } catch (error) {
     if (error instanceof AuthError) {
       return { error: "Invalid email or password." };

@@ -8,8 +8,10 @@ import { MedicationLog } from "@/lib/db/models/MedicationLog";
 import { MedicalRecord } from "@/lib/db/models/MedicalRecord";
 import { computeHealthScore } from "@/lib/intelligence/healthScore";
 import { buildWellnessSignals, greetingForHour, tipOfTheDay } from "@/lib/intelligence/rules";
+import { dailyTip } from "@/lib/intelligence/tips";
 import { HealthScoreCard } from "@/components/student/HealthScoreCard";
 import { OfflineCache } from "@/components/student/OfflineCache";
+import { EmergencyCacheWriter } from "@/components/student/EmergencyCacheWriter";
 import { EmergencySOS } from "@/components/student/EmergencySOS";
 import { toPlain } from "@/lib/utils";
 
@@ -66,6 +68,11 @@ export default async function DashboardPage() {
 
   const firstName = profile.name.split(" ")[0];
   const nextMed = data.activeMeds[0];
+  const tip = dailyTip({
+    conditions: profile.medicalConditions,
+    genotype: profile.genotype ?? undefined,
+    adherencePct: data.adherenceRate != null ? Math.round(data.adherenceRate * 100) : undefined,
+  });
 
   const toneClass: Record<string, string> = {
     info: "border-sky-100 bg-sky-50 text-sky-700",
@@ -76,6 +83,27 @@ export default async function DashboardPage() {
 
   return (
     <div className="animate-fade-up space-y-5">
+      {/* persist the emergency card for offline Emergency Mode */}
+      <EmergencyCacheWriter
+        data={{
+          name: profile.name,
+          matricNumber: profile.matricNumber,
+          bloodGroup: profile.bloodGroup ?? undefined,
+          genotype: profile.genotype ?? undefined,
+          age: profile.age ?? undefined,
+          allergies: profile.allergies ?? [],
+          medicalConditions: profile.medicalConditions ?? [],
+          currentMedication: profile.currentMedication ?? [],
+          emergencyContact: profile.emergencyContact
+            ? {
+                name: profile.emergencyContact.name,
+                phone: profile.emergencyContact.phone,
+                relationship: profile.emergencyContact.relationship,
+              }
+            : undefined,
+        }}
+      />
+
       {/* persist a snapshot for offline use */}
       <OfflineCache
         snapshot={{
@@ -201,10 +229,10 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {/* Tip of the day */}
+      {/* Personalized wellness tip */}
       <div className="card p-5">
-        <p className="text-sm font-semibold text-muted">💡 Health tip</p>
-        <p className="mt-1">{tipOfTheDay()}</p>
+        <p className="text-sm font-semibold text-muted">💡 {tip.title}</p>
+        <p className="mt-1">{tip.body}</p>
       </div>
     </div>
   );

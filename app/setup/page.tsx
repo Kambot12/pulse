@@ -8,8 +8,8 @@ export const dynamic = "force-dynamic";
 
 export default async function SetupPage() {
   await dbConnect();
-  const admins = await User.countDocuments({ role: "admin" });
-  if (admins > 0) redirect("/login"); // setup is a one-time bootstrap
+  const superadmins = await User.countDocuments({ role: "superadmin" });
+  if (superadmins > 0) redirect("/login"); // setup is a one-time platform bootstrap
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">

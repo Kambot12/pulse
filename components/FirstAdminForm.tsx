@@ -11,8 +11,8 @@ export function FirstAdminForm() {
   return (
     <form action={action} className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Set up your clinic</h1>
-        <p className="mt-1 text-sm text-muted">Create the first admin account for your university clinic.</p>
+        <h1 className="text-2xl font-bold tracking-tight">Set up the platform</h1>
+        <p className="mt-1 text-sm text-muted">Creates the platform owner (super-admin) + a default institution, so signups work right away. You&apos;ll add more institutions from the platform console.</p>
       </div>
       {state?.error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{state.error}</p>}
       <div>
@@ -31,7 +31,7 @@ export function FirstAdminForm() {
         <label className="label" htmlFor="secret">Setup secret <span className="font-normal text-muted">(only if configured)</span></label>
         <input id="secret" name="secret" className="input" placeholder="Leave blank if not set" />
       </div>
-      <SubmitButton pendingText="Creating admin…">Create admin &amp; continue</SubmitButton>
+      <SubmitButton pendingText="Creating…">Create super-admin &amp; continue</SubmitButton>
     </form>
   );
 }

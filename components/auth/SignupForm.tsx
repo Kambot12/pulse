@@ -13,7 +13,7 @@ export function SignupForm() {
     <form action={action} className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Create your passport</h1>
-        <p className="mt-1 text-sm text-muted">Start your digital health profile in seconds.</p>
+        <p className="mt-1 text-sm text-muted">Use your school email — we&apos;ll connect you to your institution automatically.</p>
       </div>
 
       {state?.error && (

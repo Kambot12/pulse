@@ -2,6 +2,7 @@ import mongoose, { Schema, model, models, type InferSchemaType } from "mongoose"
 
 const PushSubscriptionSchema = new Schema(
   {
+    orgId: { type: Schema.Types.ObjectId, ref: "Organization", index: true }, // null for superadmin
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     role: { type: String, default: "student", index: true },
     endpoint: { type: String, required: true, unique: true },

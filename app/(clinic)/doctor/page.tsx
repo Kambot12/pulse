@@ -2,17 +2,19 @@ import Link from "next/link";
 import { ScanLine, Users, CalendarClock, ShieldCheck } from "lucide-react";
 import { dbConnect } from "@/lib/db/connect";
 import { PatientSearch } from "@/components/clinic/PatientSearch";
+import { getCurrentUser } from "@/lib/auth/session";
 import { StudentProfile } from "@/lib/db/models/StudentProfile";
 import { Appointment } from "@/lib/db/models/Appointment";
 import { AuditLog } from "@/lib/db/models/AuditLog";
 import { toPlain } from "@/lib/utils";
 
 export default async function DoctorDashboard() {
+  const orgId = (await getCurrentUser())?.orgId ?? null;
   await dbConnect();
   const [students, pending, recentAccess] = await Promise.all([
-    StudentProfile.countDocuments({}),
-    Appointment.countDocuments({ status: "pending" }),
-    AuditLog.find({ action: "passport.view" }).sort({ createdAt: -1 }).limit(6).lean(),
+    StudentProfile.countDocuments({ orgId }),
+    Appointment.countDocuments({ orgId, status: "pending" }),
+    AuditLog.find({ orgId, action: "passport.view" }).sort({ createdAt: -1 }).limit(6).lean(),
   ]);
   const access = toPlain(recentAccess);
 
