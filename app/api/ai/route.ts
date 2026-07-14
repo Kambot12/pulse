@@ -1,4 +1,5 @@
 import { streamText } from "ai";
+import { aiEnabled, aiModel } from "@/lib/ai/model";
 import { auth } from "@/lib/auth/auth";
 import { dbConnect } from "@/lib/db/connect";
 import { StudentProfile } from "@/lib/db/models/StudentProfile";
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
     .lean<{ name: string; age?: number; genotype?: string; medicalConditions?: string[]; allergies?: string[] }>();
 
   // No AI key → rules-based guidance (still safe + useful).
-  if (!process.env.AI_GATEWAY_API_KEY) {
+  if (!aiEnabled()) {
     const triage = assessSymptoms({ text: String(lastUser) });
     return new Response(fallbackReply(String(lastUser), triage), {
       headers: { "Content-Type": "text/plain; charset=utf-8" },
@@ -43,7 +44,7 @@ export async function POST(req: Request) {
 
   try {
     const result = streamText({
-      model: process.env.AI_MODEL || "google/gemini-2.5-flash",
+      model: aiModel(),
       system,
       messages: messages.filter((m) => m.role === "user" || m.role === "assistant"),
       temperature: 0.4,

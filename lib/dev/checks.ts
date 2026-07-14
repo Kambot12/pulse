@@ -102,7 +102,7 @@ export async function gatherDiagnostics(): Promise<Diagnostics> {
   // --- Integrations ---
   const smtpOk = has(process.env.SMTP_HOST) && has(process.env.SMTP_USER) && has(process.env.SMTP_PASS);
   const vapidOk = has(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) && has(process.env.VAPID_PRIVATE_KEY);
-  const aiOk = has(process.env.AI_GATEWAY_API_KEY);
+  const aiOk = has(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
   const smsOk = has(process.env.TERMII_API_KEY) || has(process.env.AT_API_KEY);
   const secretsOk = has(process.env.AUTH_SECRET) && has(process.env.PASSPORT_SECRET);
 
@@ -110,7 +110,7 @@ export async function gatherDiagnostics(): Promise<Diagnostics> {
     { key: "db", label: "MongoDB", status: dbOk ? "ok" : "error", detail: dbOk ? `connected · ping ${dbPingMs}ms` : "connection failed" },
     { key: "email", label: "Email (SMTP)", status: smtpOk ? "ok" : "missing", detail: smtpOk ? `SMTP via ${process.env.SMTP_USER}` : "SMTP_* not set — reset links are logged only" },
     { key: "push", label: "Web Push (VAPID)", status: vapidOk ? "ok" : "missing", detail: vapidOk ? `${pushCount} subscription(s)` : "VAPID keys not set" },
-    { key: "ai", label: "AI Gateway", status: aiOk ? "ok" : "missing", detail: aiOk ? `model ${process.env.AI_MODEL || "google/gemini-2.5-flash"}` : "no key — rules-based fallback active" },
+    { key: "ai", label: "Gemini (Google AI)", status: aiOk ? "ok" : "missing", detail: aiOk ? `model ${process.env.AI_MODEL || "gemini-flash-latest"}` : "no key — rules-based fallback active" },
     { key: "cron", label: "Reminder cron", status: has(process.env.CRON_SECRET) ? "ok" : "missing", detail: has(process.env.CRON_SECRET) ? `secret set · last dose reminder: ${lastReminder}` : "CRON_SECRET not set" },
     { key: "sms", label: "SMS (Termii/AT)", status: smsOk ? "ok" : "stub", detail: smsOk ? "provider key set" : "stubbed (logs only)" },
     { key: "secrets", label: "Core secrets", status: secretsOk ? "ok" : "error", detail: secretsOk ? "AUTH + PASSPORT set" : "missing AUTH_SECRET/PASSPORT_SECRET" },
@@ -124,7 +124,7 @@ export async function gatherDiagnostics(): Promise<Diagnostics> {
     ["Email", "SMTP_HOST", false], ["Email", "SMTP_PORT", false], ["Email", "SMTP_USER", false],
     ["Email", "SMTP_PASS", false], ["Email", "EMAIL_FROM", false],
     ["Dev", "DEV_EMAIL", false], ["Dev", "DEV_PASSWORD", false],
-    ["Optional", "AI_GATEWAY_API_KEY", false], ["Optional", "AI_MODEL", false], ["Optional", "SETUP_SECRET", false],
+    ["Optional", "GOOGLE_GENERATIVE_AI_API_KEY", false], ["Optional", "AI_MODEL", false], ["Optional", "SETUP_SECRET", false],
     ["Optional", "TERMII_API_KEY", false], ["Optional", "AT_API_KEY", false], ["Optional", "RESEND_API_KEY", false],
   ];
   const env: EnvVar[] = envGroups.map(([group, name, required]) => ({ group, name, required, set: has(process.env[name]) }));

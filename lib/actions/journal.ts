@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { generateText } from "ai";
+import { aiEnabled, aiModel } from "@/lib/ai/model";
 import { dbConnect } from "@/lib/db/connect";
 import { getCurrentStudentContext } from "@/lib/auth/session";
 import { SymptomJournal } from "@/lib/db/models/SymptomJournal";
@@ -68,10 +69,10 @@ export async function summarizeJournalAction(): Promise<JournalActionState> {
   if (!entries.length) return { ok: true };
 
   let summary: string;
-  if (process.env.AI_GATEWAY_API_KEY) {
+  if (aiEnabled()) {
     try {
       const { text } = await generateText({
-        model: process.env.AI_MODEL || "google/gemini-2.5-flash",
+        model: aiModel(),
         system: buildJournalSummaryPrompt(),
         prompt: journalLines(entries),
         temperature: 0.4,
